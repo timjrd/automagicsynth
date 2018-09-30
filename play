@@ -1,0 +1,5 @@
+#! /usr/bin/env bash
+
+play --type raw --rate 44100 --bits 16 --channels 2 --encoding signed-integer --endian little -
+
+# cvlc --demux=rawaud --rawaud-channels 2 --rawaud-samplerate 44100 -
