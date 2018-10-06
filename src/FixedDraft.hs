@@ -1,4 +1,5 @@
-module Fixed where
+-- /!\ THIS MODULE IS FOR DEAD-CODE ARCHIVING ONLY /!\
+module FixedDraft where
 
 import Data.Int
 import Data.Bits

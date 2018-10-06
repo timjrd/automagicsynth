@@ -31,9 +31,9 @@ track = do
     $ melody
 
   return
-    $ take (samples 120)
-    $ zipWith (*) (sample $ dup . ramp 0   5   0 1)
-    $ zipWith (*) (sample $ dup . ramp 115 120 1 0)
+    -- $ take (samples 120)
+    -- $ zipWith (*) (sample $ dup . ramp 0   5   0 1)
+    -- $ zipWith (*) (sample $ dup . ramp 115 120 1 0)
     $ compress 0.8 4
     $ vol 0.7
     $ lowpass (fromRational hz * 8)
