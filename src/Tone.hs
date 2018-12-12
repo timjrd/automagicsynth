@@ -1,67 +1,126 @@
-module Tone where
+module Tone (tone, someTone) where
 
 import Control.Monad.Random
 
+import Data.List
+
 import Util
+import Interpolable
 
-data Tone = Tone
-  { modulatingToneFactor       :: Int
-  , modulatingToneShift        :: Sample
-  , stereoModulatingToneShift  :: Sample
-  , modulationIndex            :: Sample
-  , stereoModulationIndexShift :: Sample }
+data ToneR = ToneR
+  { modFactor :: (Int,Int)
+  , modShift  :: Sample
+  , modRate   :: Sample
+  , sumRate   :: Sample
+  , depth     :: Int }
 
-patch = Tone
-  { modulatingToneFactor       = 5
-  , modulatingToneShift        = 3
-  , stereoModulatingToneShift  = 1
-  , modulationIndex            = 0.5
-  , stereoModulationIndexShift = 0.1 }
+data ToneD = ToneD
+  { modShiftD  :: Sample
+  , modRateD   :: Sample
+  , sumWeightD :: Sample }
 
-loPatch = Tone
-  { modulatingToneFactor       = 1
-  , modulatingToneShift        = -9
-  , stereoModulatingToneShift  = -7
-  , modulationIndex            = -3
-  , stereoModulationIndexShift = -1 }
+data Tone a = Sin a a (Tone a)
+            | Sum a a (Tone a) (Tone a)
+            | Empty
 
-hiPatch = Tone
-  { modulatingToneFactor       = 6
-  , modulatingToneShift        = 9
-  , stereoModulatingToneShift  = 7
-  , modulationIndex            = 3
-  , stereoModulationIndexShift = 1 }
+instance Functor Tone where
+  fmap f (Sin a b c  ) = Sin (f a) (f b) (fmap f c)
+  fmap f (Sum a b c d) = Sum (f a) (f b) (fmap f c) (fmap f d)
+  fmap _ Empty = Empty
 
-instance Random Tone where
-  random = randomR (loPatch,hiPatch)
-  
-  randomR ( (Tone m1 dm1 ddm1 im1 dim1)
-          , (Tone m2 dm2 ddm2 im2 dim2) ) = runRand $ do
-    m   <- getRandomR (m1  , m2  )
-    dm  <- getRandomR (dm1 , dm2 )
-    ddm <- getRandomR (ddm1, ddm2)
-    im  <- getRandomR (im1 , im2 )
-    dim <- getRandomR (dim1, dim2)
-    return $ Tone m dm ddm im dim
+(<#>) :: Tone (a -> b) -> Tone a -> Tone b
+(Sin a1 b1 c1   ) <#> (Sin a2 b2 c2   ) = Sin (a1 a2) (b1 b2) (c1 <#> c2)
+(Sum a1 b1 c1 d1) <#> (Sum a2 b2 c2 d2) = Sum (a1 a2) (b1 b2) (c1 <#> c2) (d1 <#> d2)
+_ <#> _ = Empty
 
-tone :: Tone -> Sample -> (Sample -> (Sample,Sample))
-tone (Tone m dm ddm im dim) hz t = mix (-0.5) 0.5 left right
-  where left  = fm hz (hz * fromIntegral m + dm + ddm) (im + dim) t
-        right = fm hz (hz * fromIntegral m + dm - ddm) (im - dim) t
-
-fm :: Sample -> Sample -> Sample -> (Sample -> Sample)
-fm hzc hzm im t = sin $ 2*pi * hzc * t + im * sin (2*pi * hzm * t)
-
-mix :: Sample -> Sample -> Sample -> Sample -> (Sample,Sample)
-mix panA panB a b = ( (left  + center) // (left1  + center1)
-                    , (right + center) // (right1 + center1) )
+randomTone :: MonadRandom m => ToneR -> m (Tone Sample)
+randomTone tr = randomTone' True 0
   where
-    left    = nabs panA * a + nabs panB * b
-    left1   = nabs panA + nabs panB
-    right   = pabs panA * a + pabs panB * b
-    right1  = pabs panA + pabs panB
-    center  = (1 - abs panA) * a + (1 - abs panB) * b
-    center1 = (1 - abs panA) + (1 - abs panB)
-    nabs x  = abs (min 0 x)
-    pabs x  = abs (max 0 x)
-    a // b  = if b == 0 then 0 else a / b
+    randomTone' d0 d
+      | d == depth tr = randomSin d0 d
+      | d >  depth tr = return Empty
+      | otherwise = do
+          r <- getRandom
+          if r < sumRate tr
+            then randomSum d0 d
+            else randomSin d0 d
+    
+    randomSum d0 d = do
+      w1 <- getRandom
+      w2 <- getRandom
+      f1 <- randomTone' d0 (d+1)
+      f2 <- randomTone' d0 (d+1)
+      return $ Sum w1 w2 f1 f2
+
+    randomSin d0 d = do
+      mf <- randomFactor d0
+      mr <- getRandomR (-modRate tr, modRate tr)
+      f1 <- randomTone' False (d+1)
+      return $ Sin mf mr f1
+
+    randomFactor True  = return 1
+    randomFactor False = do
+      mf <- getRandomR $ modFactor tr
+      ms <- getRandomR (-modShift tr, modShift tr)
+      return $ fromIntegral mf + ms
+
+randomToneD :: MonadRandom m => ToneD -> (Tone Sample) -> m (Tone Sample)
+randomToneD _  Empty = return Empty
+randomToneD td (Sin mf mr f1) = do
+  df  <- getRandomR (-modShiftD td, modShiftD td)
+  dr  <- getRandomR (-modRateD  td, modRateD  td)
+  f1' <- randomToneD td f1
+  return $ Sin (mf+df) (mr+dr) f1'
+
+randomToneD td (Sum w1 w2 f1 f2) = do
+  d1  <- getRandomR (-sumWeightD td, sumWeightD td)
+  d2  <- getRandomR (-sumWeightD td, sumWeightD td)
+  f1' <- randomToneD td f1
+  f2' <- randomToneD td f2
+  return $ Sum (w1+d1) (w2+d2) f1' f2'
+
+tone :: Tone (Sample -> Sample) -> (Sample -> Sample) -> [Sample]
+tone Empty _ = repeat 0
+tone (Sin mf mr f1   ) hz = fm (\t -> hz t * mf t) mr (tone f1 hz)
+tone (Sum w1 w2 f1 f2) hz = add w1 w2 (tone f1 hz) (tone f2 hz)
+
+add :: (Sample -> Sample) -> (Sample -> Sample) -> [Sample] -> [Sample] -> [Sample]
+add wf1 wf2 xs1 xs2 = zipWith4 f (sample wf1) (sample wf2) xs1 xs2
+  where f w1 w2 x1 x2 = (x1*w1 + x2*w2) / (w1+w2)
+
+fm :: (Sample -> Sample) -> (Sample -> Sample) -> [Sample] -> [Sample]
+fm hz mr = f 0 0
+  where
+    f _ _    []  = []
+    f i a (x:xs) = sin a : f (i+1) a' xs
+      where
+        t  = i * fromRational frame
+        a' = a + 2*pi * fi * fromRational frame
+        fi = hz t + hz t * mr t * x
+
+pan :: Sample -> (Sample,Sample) -> (Sample,Sample)
+pan p (l,r) = ( l * (1-rp) + r * lp
+              , r * (1-lp) + l * rp )
+  where
+    lp = abs (min p 0)
+    rp = max p 0
+
+someTone :: Tone (Sample -> Sample)--, Tone (Sample -> Sample))
+someTone = flip evalRand (mkStdGen 105) $ do
+  toneL <- randomTone $ ToneR
+    { modFactor = (1,5)
+    , modShift  = 0.1
+    , modRate   = 0.8
+    , sumRate   = 0.5
+    , depth     = 5 }
+    
+  -- toneR <- flip randomToneD toneL $ ToneD
+  --   { modShiftD  = 0.05
+  --   , modRateD   = 0.05
+  --   , sumWeightD = 0.05 }
+
+  -- return ( fmap const toneL
+  --        , fmap const toneR )
+
+  return $ fmap const toneL
+  
