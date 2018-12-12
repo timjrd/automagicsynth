@@ -20,7 +20,7 @@ samples t = floor $ fromRational frameRate * t
 -- epsilon :: Rational
 -- epsilon = 0.001
 
-type Sample = Double
+type Sample = Float
 
 data Split a = Fst a
              | Snd a
@@ -116,24 +116,28 @@ minimumOn f = minimumBy $ \x y -> compare (f x) (f y)
 
 both :: (a -> b) -> (a,a) -> (b,b)
 both f (x,y) = (f x, f y)
-  
 
-lowpass :: Sample -> [(Sample,Sample)] -> [(Sample,Sample)]
-lowpass hz = (uncurry zip) . both g . unzip
+lowpass1' :: (Sample -> Sample -> Sample) -> Sample -> [Sample] -> [Sample]
+lowpass1' f _     []  = []
+lowpass1' f hz (x:xs) = g (a*x) xs
   where
     dt = fromRational frame
     a  = (2*pi*dt*hz) / (2*pi*dt*hz + 1)
     
-    g    []  = []
-    g (x:xs) = f (a*x) xs
-    
-    f _      []  = []
-    f y_1 (x:xs) = y : f y xs
+    g _      []  = []
+    g y_1 (x:xs) = y' : g y' xs
       where
-        y = a * x + (1-a) * y_1
+        y  = a * x + (1-a) * y_1
+        y' = f x y
+
+lowpass1 :: Sample -> [Sample] -> [Sample]
+lowpass1 = lowpass1' $ \_ -> id
+    
+lowpass :: Sample -> [(Sample,Sample)] -> [(Sample,Sample)]
+lowpass hz = (uncurry zip) . both (lowpass1 hz) . unzip
 
 compress :: Sample -> Sample -> [(Sample,Sample)] -> [(Sample,Sample)]
-compress th hi = map $ \(l,r) -> (c l, c r)
+compress th hi = map (both c)
   where
     c x = signum x * f (abs x)
     f x | x < th    = x

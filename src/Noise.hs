@@ -39,11 +39,11 @@ right :: Int64 -> Int -> Int64
 right x n = fromIntegral (fromIntegral x `unsafeShiftR` n :: Word64)      
 
 
-noise :: Float -> (Float,Float)
-noise t = (f t, f (-t)) 
+noise1 :: Float -> Float
+noise1 t = fromIntegral h / fromIntegral (m-1) * 2 - 1
   where
-    f t = fromIntegral h / fromIntegral (m-1) * 2 - 1
-      where
-        h = hash (samples t) `mod` m
-        m = 2^16
-        
+    h = hash (samples t) `mod` m
+    m = 2^16 
+
+noise :: Float -> (Float,Float)
+noise t = (noise1 t, noise1 (-t)) 

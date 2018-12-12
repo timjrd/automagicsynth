@@ -58,4 +58,4 @@ synthScript' (Par a b) = f (synthScript' a) (synthScript' b)
 
 synthScript' (Note dt v hz) = 
   withEnvelope (Envelope 0.04 0.7 0.5 0.1 4) (fromRational dt)
-  $ sample $ (dup (fromRational v) *) . tone patch (fromRational hz)
+  $ (dup (fromRational v) *) <$> tone patch (fromRational hz)
