@@ -59,4 +59,4 @@ synthScript' (Par a b) = f (synthScript' a) (synthScript' b)
 synthScript' (Note dt v hz) = 
   withEnvelope (Envelope 0.04 0.7 0.5 0.1) (fromRational dt)
   $ map (dup (fromRational v) *)
-  $ tone someTone (fromRational hz)
+  $ tone (patch bell) (fromRational hz)
