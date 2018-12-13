@@ -5,21 +5,35 @@ import Control.Monad.Random
 import Noise
 import Util
 
-data Tone = Tone ()
+data Patch = Patch Int [Rational]
+data Tone  = Tone  Int [(Sample,Sample)]
 
-patch = Tone ()
+fromHz = 10
+
+someTone = let n = 1 in Tone n
+  $ map dup
+  $ take (samples (fromIntegral n / fromHz) + 1)
+  $ sample
+  $ \t -> sin (2*pi*fromHz*t)
 
 tone :: Tone -> Sample -> [(Sample,Sample)]
-tone patch hz = dup <$> f 0 (-1)
-  where f i x = 0.7 * x : f (i+1) (walk patch hz i x)
-
-walk :: Tone -> Sample -> Int -> Sample -> Sample
-walk patch hz i x = x + d * r * s
+tone (Tone n xs) hz = cycle $ f 0 1 xs
   where
-    ra = abs $ noise1 x
-    rs = noise1 ra
-    r  = da * ra + (1-da) * rs
-    s  = if i `mod` (n*2) < n then 1 else (-1)
-    n  = samples (1/hz) `div` 2
-    da = 0.8
-    d  = 2 / (da * 0.5) / fromIntegral n
+    fromSamples = samples (fromIntegral n / fromHz) + 1
+    toSamples   = samples (fromIntegral n / hz    ) + 1
+    j i         = floor $ fromIntegral i *
+      (fromIntegral toSamples / fromIntegral fromSamples)
+    
+    f _ _        []  = []
+    f _ m (x0   :[]) = [x0 / fromIntegral m]
+    f i m (x0:x1:xs) = case j (i+1) - j i of
+      0 -> f (i+1) (m+1) (x0+x1:xs)
+      1 -> x0 / fromIntegral m :  f (i+1) 1 (x1:xs)
+      d -> interpolate d x0 x1 ++ f (i+1) 1 (x1:xs)
+
+interpolate :: Int -> (Sample,Sample) -> (Sample,Sample) -> [(Sample,Sample)]
+interpolate n from to = map f [0..n-1]
+  where
+    f i = (1-k) * from + k * to
+      where
+        k = fromIntegral i / fromIntegral n
