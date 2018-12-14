@@ -3,6 +3,7 @@ module Script where
 import Data.List
 
 import Util
+import Noise
 import Tone
 import Envelope
 
@@ -59,4 +60,4 @@ synthScript' (Par a b) = f (synthScript' a) (synthScript' b)
 synthScript' (Note dt v hz) = 
   withEnvelope (Envelope 0.04 0.7 0.5 0.1) (fromRational dt)
   $ map (dup (fromRational v) *)
-  $ tone (patch bell) (fromRational hz)
+  $ tone someTone (fromRational hz)

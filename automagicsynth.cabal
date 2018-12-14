@@ -59,6 +59,7 @@ executable automagicsynth
                  Constraint
                  Envelope
                  Noise
+                 Hash
                  PCM
                  Script
                  Tone
@@ -70,6 +71,7 @@ executable automagicsynth
   -- Other library packages from which modules are imported.
   build-depends:       base, containers, bytestring, random,
                        MonadRandom, random-shuffle,
+                       reinterpret-cast,
                        gnuplot
   
   -- Directories containing source files.
