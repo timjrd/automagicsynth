@@ -2,47 +2,55 @@ module Tone where
 
 import Control.Monad.Random
 
+import Data.Array
+
 import Util
 import Noise
 
-data Patch = Patch Int [(Rational,Rational)] [(Rational,Rational)]
-data Tone  = Tone  Int [(Sample,Sample)]
+-- Wavetable data type
+data Tone = Tone Sample (Array Int (Array Int (Sample,Sample)))
 
-minHz  = 20
-maxHz  = 20000
-fromHz = minHz
+fromLength = 512 -- 2^9
+fromHz     = fromRational $ 1 / (frame * fromIntegral fromLength)
 
-somePatch = iterate nextPatch basePatch !! 32
-someTone  = patch somePatch
+someTone = evalRand randomTone (mkStdGen 21)
+-- good seeds: 21 33 35
 
+sineTone = Tone 1 $ listArray (0,0)
+  [ listArray (0,fromLength-1)
+    $ sample
+    $ \t -> dup $ sin $ 2*pi * fromHz * t ]
+
+-- Wavetable synthesizer with linear interpolation
 tone :: Tone -> Sample -> [(Sample,Sample)]
-tone (Tone n xs) hz = cycle $ f 0 1 xs
+tone (Tone dt table) hz = sample f
   where
-    toHz        = max minHz $ min maxHz hz
-    fromSamples = samples (fromIntegral n / fromHz) - 1
-    toSamples   = samples (fromIntegral n / toHz  ) - 1
-    j i         = floor $ fromIntegral i *
-      (fromIntegral toSamples / fromIntegral fromSamples)
-    
-    f _ _        []  = []
-    f _ m (x0   :[]) = [x0 / fromIntegral m]
-    f i m (x0:x1:xs) = case j (i+1) - j i of
-      0 -> f (i+1) (m+1) (x0+x1:xs)
-      1 -> x0 / fromIntegral m :  f (i+1) 1 (x1:xs)
-      _ -> error "tone: downsampling only"
+    n   = 1 + snd (bounds table)
+    f t = c
+      where
+        i  = (t / dt) * fromIntegral n
+        j  = (t * hz) * fromIntegral fromLength
 
-patch :: Patch -> Tone
-patch (Patch n ls rs) = Tone n
-  $ zip (patch1 n ls) (patch1 n rs)
+        di = dup $ i `fmod` 1
+        dj = dup $ j `fmod` 1
 
-patch1 :: Int -> [(Rational,Rational)] -> [Sample]
-patch1 n xs = normalize
-  $ take (samples (fromIntegral n / fromHz) - 1)
-  $ sample $ \t -> foldr (f t) 0 xs
-  where
-    f t (hz,amp) s = s + fromRational amp *
-      sin (2*pi * t * fromHz * fromRational hz)    
+        i0 = floor   i `mod` n
+        i1 = ceiling i `mod` n
+        
+        j0 = floor   j `mod` fromLength 
+        j1 = ceiling j `mod` fromLength
 
+        a0 = table ! i0 ! j0
+        a1 = table ! i0 ! j1
+
+        b0 = table ! i1 ! j0
+        b1 = table ! i1 ! j1
+
+        a  = (1-dj) * a0 + dj * a1
+        b  = (1-dj) * b0 + dj * b1
+
+        c  = (1-di) * a + di * b
+      
 normalize :: [Sample] -> [Sample]
 normalize xs = map f xs
   where
@@ -54,39 +62,46 @@ normalize xs = map f xs
     
     f x = d + k * x
 
-basePatch = Patch 2 xs xs
-  where
-    n   = 32
-    xs  = map f [0..n-1]
-    f i = (hz,amp)
-      where
-        hz  = fromIntegral $ (i `div` 2) + 1
-        amp = 1 / (k*20+1)
-        k   = fromIntegral i / fromIntegral (n-1)
+noiseWave :: MonadRandom m => m [Sample]
+noiseWave = take fromLength <$> getRandomRs (-1,1)
 
-nextPatch (Patch n ls rs) = Patch n (nextPatch1 0 ls) (nextPatch1 1 rs)
-
-nextPatch1 :: Int -> [(Rational,Rational)] -> [(Rational,Rational)]
-nextPatch1 c = zipWith f [0::Int ..]
+smoothWave :: Int -> [Sample] -> [Sample]
+smoothWave passes xs = normalize
+  $ take fromLength
+  $ drop (fromLength*padding) padded'
   where
-    f i (hz,amp) = ( max 1 $ hz  + sHz + dHz
-                   , max 0 $ amp + amp * sAmp )
-      where
-        h1 = c <#> i <#> hz <#> amp
-        h2 = hash h1
-        h3 = hash h2
-        
-        r1 = noise h1 :: Rational
-        r2 = noise h2 :: Rational
-        r3 = noise h3 :: Rational
-        
-        pmHz  = 0.004
-        pmAmp = 0.04
-        
-        sHz  = (r1 * 2 - 1) * pmHz
-        sAmp = (r2 * 2 - 1) * pmAmp
-        
-        dHz  = if r3 < 0.1 then -1
-          else if r3 < 0.2 then  1
-                           else  0
-        
+    padding = 8
+    padded  = concat $ replicate (padding*2+1) xs
+    padded' = foldr lowpass1 padded $ map fromIntegral hzs
+    
+    minHz = 20
+    maxHz = 20000
+    hzs   = map f [0 .. passes-1]
+    f i   = minHz + (((maxHz - minHz) * i) `div` (passes-1))
+
+randomTone :: MonadRandom m => m Tone
+randomTone = do
+  base    <- noiseWave
+  noisesL <- replicateM n noiseWave
+  noisesR <- replicateM n noiseWave
+  passes  <- getRandomRs (20,180)
+  dt      <- getRandomR (0.1 * fromIntegral n, 2 * fromIntegral n)
+  
+  let basesL = map (zipWith shiftDT base) noisesL
+      basesR = zipWith (zipWith shiftLR) basesL noisesR
+      smoothesL = zipWith ($) (map smoothWave passes) basesL
+      smoothesR = zipWith ($) (map smoothWave passes) basesR
+      smoothes = zipWith zip smoothesL smoothesR
+      
+  return $ wavetable dt smoothes
+  
+  where
+    n = 4
+    shiftDT = shift 0.9
+    shiftLR = shift 0.9
+    shift k x d = (x + k * d) / (1 + k)
+
+wavetable :: Sample -> [[(Sample,Sample)]] -> Tone
+wavetable dt table = Tone dt
+  $ listArray (0, length table - 1)
+  $ map (listArray (0, fromLength-1)) table

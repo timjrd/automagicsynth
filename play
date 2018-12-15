@@ -1,5 +1,7 @@
 #! /usr/bin/env bash
-
-play --type raw --rate 44100 --bits 16 --channels 2 --encoding signed-integer --endian little -
-
-# cvlc --demux=rawaud --rawaud-channels 2 --rawaud-samplerate 44100 -
+if test $(command -v cvlc)
+then
+    cvlc --demux=rawaud --rawaud-channels 2 --rawaud-samplerate 44100 --file-caching=5000 -
+else
+    echo '"cvlc" not found.'
+fi

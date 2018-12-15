@@ -52,24 +52,26 @@ cabal-version:       >=1.10
 executable automagicsynth
   -- .hs or .lhs file containing the Main module.
   main-is:             Main.hs
+
+  ghc-options:         -O2
   
   -- Modules included in this executable, other than Main.
   -- other-modules:
-  other-modules: Composition
-                 Constraint
-                 Envelope
-                 Noise
-                 Hash
-                 PCM
-                 Script
-                 Tone
-                 Util
+  other-modules:       Composition
+                       Constraint
+                       Envelope
+                       Noise
+                       Hash
+                       PCM
+                       Script
+                       Tone
+                       Util
   
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:    
   
   -- Other library packages from which modules are imported.
-  build-depends:       base, containers, bytestring, random,
+  build-depends:       base, array, containers, bytestring, random,
                        MonadRandom, random-shuffle,
                        reinterpret-cast,
                        gnuplot

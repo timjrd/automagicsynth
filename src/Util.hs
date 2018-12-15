@@ -20,7 +20,7 @@ samples t = floor $ fromRational frameRate * t
 -- epsilon :: Rational
 -- epsilon = 0.001
 
-type Sample = Float
+type Sample = Double
 
 data Split a = Fst a
              | Snd a
@@ -69,6 +69,10 @@ instance (Num a, Num b) => Num (a,b) where
 instance (Fractional a, Fractional b) => Fractional (a,b) where
   fromRational x = (fromRational x, fromRational x)
   (a1,b1) / (a2,b2) = (a1/a2, b1/b2)
+
+fmod :: RealFrac a => a -> a -> a
+fmod a b = a - n*b
+  where n = fromIntegral $ floor $ a / b
   
 ramp :: (Fractional a, Ord a) => a -> a -> a -> a -> a -> a
 ramp fromX toX fromY toY t = max (min fromY toY) $ min (max fromY toY)

@@ -132,7 +132,7 @@ clamp lo hi x | x < lo    = x*2
 
 melody :: MonadInterleave m => m [[Pitch]]
 melody = solve 32 4 $ mapClass
-  .> filterImperfect [0,1,2,2]
+  .> filterImperfect [1,2,3,3]
   .> mapConsonance   [1,1,2,2]
   .> filterPower     [32,32,50,50]
   .> filterAlterationBy dir 32 [(2,4),(2,4),(2,8),(2,8)]  

@@ -25,7 +25,7 @@ cabal build
 ```
 
 ## Run
-The `./play` script contains parameters for SoX's `play` and VideoLAN's `cvlc`.
+The `./play` script contains parameters for VideoLAN's `cvlc`.
 ```
 ./dist/build/automagicsynth/automagicsynth | ./play
 ```

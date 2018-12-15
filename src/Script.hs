@@ -14,13 +14,13 @@ type Pitch    = Rational
 data Script = Seq Script Script
             | Par Script Script
             | Empty
-            | Note Duration Velocity Pitch
-            -- | Rest Duration
-  deriving Show
+            | Note Tone Duration Velocity Pitch
+            | Rest Duration
+  -- deriving Show
 
-mergeNotes :: Duration -> Velocity -> [Pitch] -> Script
-mergeNotes dt v = line . map f . group
-  where f x = Note (dt * fromIntegral (length x)) v (head x)
+mergeNotes :: Tone -> Duration -> Velocity -> [Pitch] -> Script
+mergeNotes tn dt v = line . map f . group
+  where f x = Note tn (dt * fromIntegral (length x)) v (head x)
 
 line :: [Script] -> Script
 line []     = Empty
@@ -30,8 +30,8 @@ together :: [Script] -> Script
 together []     = Empty
 together (x:xs) = Par x $ together xs
 
-fromPitches :: Duration -> Velocity -> [Pitch] -> Script
-fromPitches dt v = line . map (Note dt v)
+fromPitches :: Tone -> Duration -> Velocity -> [Pitch] -> Script
+fromPitches tn dt v = line . map (Note tn dt v)
 
 synthScript :: Script -> [(Sample,Sample)]
 synthScript = map fromSplit . synthScript'
@@ -57,7 +57,9 @@ synthScript' (Par a b) = f (synthScript' a) (synthScript' b)
     f        xs         []  = xs
     f        []         ys  = ys
 
-synthScript' (Note dt v hz) = 
-  withEnvelope (Envelope 0.04 0.7 0.5 0.1) (fromRational dt)
+synthScript' (Note tn dt v hz) = 
+  withEnvelope (Envelope 0.006 0.06 0.45 0.3) (fromRational dt)
   $ map (dup (fromRational v) *)
-  $ tone someTone (fromRational hz)
+  $ tone tn (fromRational hz)
+
+synthScript' (Rest dt) = replicate (samples dt) $ Fst (0,0)
