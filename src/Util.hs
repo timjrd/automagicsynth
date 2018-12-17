@@ -1,4 +1,7 @@
-module Util where
+module Util
+ ( Sample
+ , fmod
+ , module Util ) where
 
 import Data.Ratio
 import Data.Bits
@@ -7,6 +10,8 @@ import Data.List
 import System.Random
 
 import Debug.Trace
+
+import Sample
 
 frameRate :: Rational
 frameRate = 44100
@@ -19,8 +24,6 @@ samples t = floor $ fromRational frameRate * t
 
 -- epsilon :: Rational
 -- epsilon = 0.001
-
-type Sample = Double
 
 data Split a = Fst a
              | Snd a
@@ -57,22 +60,6 @@ instance (Integral a, Random a) => Random (Ratio a) where
 
   randomR (lo,hi) g = (lo + (hi-lo) * r, g')
     where (r,g') = random g
-
-instance (Num a, Num b) => Num (a,b) where
-  (a1,b1) + (a2,b2) = (a1+a2, b1+b2)
-  (a1,b1) * (a2,b2) = (a1*a2, b1*b2)
-  abs    (a,b)  = (abs    a, abs    b)
-  signum (a,b)  = (signum a, signum b)
-  negate (a,b)  = (negate a, negate b)
-  fromInteger x = (fromInteger x, fromInteger x)  
-
-instance (Fractional a, Fractional b) => Fractional (a,b) where
-  fromRational x = (fromRational x, fromRational x)
-  (a1,b1) / (a2,b2) = (a1/a2, b1/b2)
-
-fmod :: RealFrac a => a -> a -> a
-fmod a b = a - n*b
-  where n = fromIntegral $ floor $ a / b
   
 ramp :: (Fractional a, Ord a) => a -> a -> a -> a -> a -> a
 ramp fromX toX fromY toY t = max (min fromY toY) $ min (max fromY toY)
@@ -151,5 +138,4 @@ compress th hi = map (both c)
 
 vol :: Sample -> [(Sample,Sample)] -> [(Sample,Sample)]
 vol v = map ((dup v) *)
-
 
