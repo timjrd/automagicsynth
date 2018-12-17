@@ -66,6 +66,7 @@ executable automagicsynth
                        Script
                        Tone
                        Util
+                       Data.Fixed.Binary
   
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:    

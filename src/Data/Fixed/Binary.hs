@@ -86,9 +86,8 @@ readNumber convert =
 
 -- Stolen from GHC.Read.
 convertFrac :: Fractional a => L.Lexeme -> ReadPrec a
-convertFrac (L.Int i) = return (fromInteger i)
-convertFrac (L.Rat r) = return (fromRational r)
-convertFrac _         = pfail
+convertFrac (L.Number x) = return $ fromRational $ L.numberToRational x
+convertFrac _ = pfail
 
 instance ( HasResolution r, Bits a, Bits (Super a), Integral a
          , Integral (Super a), SuperTypeable a) => Read (Fixed r a) where
@@ -171,7 +170,7 @@ fixedRadix = inFixed fromIntegral
 
 -- | Fast conversion between fixed-point numbers with the same
 -- representation size.
-fixedSize :: (HasResolution r, HasResolution s, Bits a) => Fixed r a -> Fixed s a
+fixedSize :: (HasResolution r, HasResolution s, Bits a, Num a) => Fixed r a -> Fixed s a
 {-# INLINE fixedSize #-}
 fixedSize x = withResolution $ \s -> Fixed $ unFixed x `shift` (s - resolution x)
 -- TODO Rewrite rules?
