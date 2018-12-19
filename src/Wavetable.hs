@@ -1,7 +1,7 @@
 module Wavetable
   ( Wavetable
   , fromList
-  , play ) where
+  , synth ) where
 
 import Data.List
 
@@ -34,8 +34,8 @@ fromList dt xs = Wavetable dt m n ys
     r = U.unsafeIndex xs (k*2+1)
     k = j * m + i
 
-play :: Wavetable -> Boxed -> Boxed -> (Boxed,Boxed)
-play table@(Wavetable dt m n _) hz t = c
+synth :: Wavetable -> Boxed -> Boxed -> (Boxed,Boxed)
+synth table@(Wavetable dt m n _) hz t = c
   where
     i  = (t / dt) * fromIntegral m
     j  = (t * hz) * fromIntegral n

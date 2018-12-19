@@ -22,10 +22,11 @@ executable automagicsynth
     Envelope
     Noise
     Hash
-    PCM
-    Script
+    Raw
+    Player
     Tone
     Wavetable
+    Shared
     Util
     Fixed
     Pair

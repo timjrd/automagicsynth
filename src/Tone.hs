@@ -2,20 +2,14 @@ module Tone where
 
 import Control.Monad.Random hiding (fromList)
 
-import Util
-import Noise
+import Shared
 import Wavetable
 
-type Tone = Wavetable
-
 fromLength = 512 -- 2^9
-fromHz     = fromRational $ 1 / (frame * fromIntegral fromLength)
+fromHz     = 1 / (samplePeriod * fromIntegral fromLength)
 
-sineTone = fromList 1 [take fromLength $ sample f]
+someTone = fromList 1 [take fromLength $ sample f]
   where f t = dup $ sin $ 2*pi * fromHz * t
-
-tone :: Tone -> Sample -> Sample -> (Sample,Sample)
-tone = play
 
 normalize :: [Sample] -> [Sample]
 normalize xs

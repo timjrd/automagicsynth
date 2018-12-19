@@ -1,69 +1,64 @@
 module Main where
 
 import Data.Function ((&))
-import Control.Arrow ((>>>))
+
 import Control.Monad
 import Data.List
 
 import Control.Monad.Random
-import System.Random.Shuffle
 
-import Util
+import Shared
 
 import Composition
 import Tone
-import Script
-import PCM
-
+import Wavetable
+import Player
 import Raw
 
-import Graphics.Gnuplot.Simple
+main = evalRandIO track >>= putRaw 4096 play . initNotes
 
-main :: IO ()
--- main = evalRandIO track >>= putPCM
-
-main = putRaw 1024 $ tone sineTone 440
-
-track :: MonadInterleave m => m [(Sample,Sample)]
-track = do
-  let hz = 440
+track :: MonadInterleave m => m [Note]
+track = do  
+  melodies <- melody
+    & fmap (replicate 4)
+    & repeat
+    & sequence
+    & fmap concat
+    & interleave
   
-  cc <- interleave
-    $ fmap concat
-    $ sequence
-    $ repeat
-    $ fmap (replicate 4)
-    $ melody
-
-  tones <- interleave
-    $ fmap (concatMap (replicate 3))  
-    $ fmap (splitEvery 4)
-    $ sequence
-    $ repeat
-    $ undefined
-
+  tones <- return someTone
+    & repeat
+    & sequence
+    & fmap (splitEvery 4)
+    & fmap (concatMap (replicate 3))
+    & interleave
+  
   let amps = concat
         [ replicate 2 [0.4 , 0   , 0   , 0   ]
         , replicate 3 [0.4 , 0.3 , 0   , 0   ]
         , replicate 4 [0.4 , 0.3 , 0.2 , 0   ] ]
         ++ repeat     [0.4 , 0.3 , 0.2 , 0.07]
+  
+  return $ concat $ zipWith4 f [0..] melodies tones amps
+  
+  where
+    hz  = 440
+    vol = 0.5
+    dt  = 0.1
+    n   = 32
+    
+    f :: Int -> [[Rational]] -> [Wavetable] -> [Number] -> [Note]
+    f i melody' tone' amp = sort $ concat withAmp
+      where
+        base = someNote { time = fromIntegral i * dt * n
+                        , duration = dt }
 
-  return
-    $ take (samples 120)
-    $ zipWith (*) (sample $ dup . ramp 0   0.5 0 1)
-    $ zipWith (*) (sample $ dup . ramp 115 120 1 0)
-    -- $ compress 0.8 4
-    $ vol 0.6
-    -- $ lowpass (fromRational hz * 8)
-    $ synthScript
-    $ line
-    $ zipWith3
-    ( \notes amp tone ->
-        together
-        $ zipWith3 (flip mergeNotes 0.11) tone amp
-        $ zipWith (map . (*)) [hz/4, hz/2, hz/2, hz] notes )
-    cc amps tones
+        pitched = zipWith (map . (*)) [hz/4, hz/2, hz/2, hz] melody'
 
-splitEvery :: Int -> [a] -> [[a]]
-splitEvery n xs = x : splitEvery n xs'
-  where (x,xs') = splitAt n xs
+        voices = map (seqNotes . joinPitches base) pitched
+
+        withTone = zipWith (map . g) tone' voices
+          where g w x = x { tone = w }
+          
+        withAmp = zipWith (map . g) amp withTone
+          where g v x = x { velocity = v * vol }

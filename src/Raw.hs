@@ -9,23 +9,25 @@ import Data.ByteString
 import System.IO
 
 import Shared
+import Player
 
-render :: Int -> Int -> (Number -> (Sample,Sample)) -> ByteString
-render chunk start f = fst $ unfoldrN n build init
+render :: Int -> Int -> Player a -> a -> (a, ByteString)
+render chunk start f a = (b,bs)
   where
-    t0   = fromIntegral (start * chunk) * samplePeriod
-    n    = chunk * 2 * 2
-    init = (((0,0), (0,0)), 0::Int)
+    t0  = fromIntegral (start * chunk) * samplePeriod
+    n   = chunk * 2 * 2
+
+    (bs, Just (_, _, b)) = unfoldrN n build (((0,0), (0,0)), 0::Int, a)
     
-    build (bytes, i) = Just (byte, (bytes', i+1))
+    build (bytes, i, a) = Just (byte, (bytes', i+1, b))
       where
         t = t0 + fromIntegral (i `div` 4) * samplePeriod
         j = i `mod` 4
         
-        bytes'@((l0,l1), (r0,r1)) =
+        (b, bytes'@((l0,l1), (r0,r1))) =
           if j == 0
-          then both sampleBytes $ f t
-          else bytes
+          then fmap (both sampleBytes) (f a t)
+          else (a, bytes)
           
         byte = case j of
           0 -> l0
@@ -49,12 +51,15 @@ sampleBytes w = (w80, w81)
     w80 = fromIntegral wLE              :: Word8
     w81 = fromIntegral (byteSwap16 wLE) :: Word8
 
-hPutRaw :: Handle -> Int -> (Number -> (Sample,Sample)) -> IO ()
-hPutRaw h chunk f = do
+hPutRaw :: Handle -> Int -> Player a -> a -> IO ()
+hPutRaw h chunk f init = do
   hSetBinaryMode h True
-  mapM_ putChunk [0..]
+  stream 0 init
   where
-    putChunk start = hPut h $ render chunk start f
+    stream i a = do
+      let (b,bs) = render chunk i f a
+      hPut h bs
+      stream (i+1) b
 
-putRaw :: Int -> (Number -> (Sample,Sample)) -> IO ()
+putRaw :: Int -> Player a -> a -> IO ()
 putRaw = hPutRaw stdout
