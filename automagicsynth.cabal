@@ -25,12 +25,14 @@ executable automagicsynth
     PCM
     Script
     Tone
+    Wavetable
     Util
-    Sample
-    Data.Fixed.Binary
+    Fixed
+    Pair
     
   build-depends:
     base, array, containers, bytestring, random,
+    vector, wide-word,
     MonadRandom, random-shuffle,
     reinterpret-cast,
     gnuplot

@@ -1,7 +1,6 @@
 module Util
- ( Sample
- , fmod
- , module Util ) where
+  ( module Util
+  , fmod ) where
 
 import Data.Ratio
 import Data.Bits
@@ -11,7 +10,15 @@ import System.Random
 
 import Debug.Trace
 
-import Sample
+import Fixed
+import Pair
+
+type Number = Fixed
+type Sample = Fixed
+
+-- Float  x1
+-- Double x1.4
+-- Fixed  x2.6
 
 frameRate :: Rational
 frameRate = 44100
