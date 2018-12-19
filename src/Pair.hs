@@ -12,3 +12,6 @@ instance (Fractional a, Fractional b) => Fractional (a,b) where
   fromRational x = (fromRational x, fromRational x)
   (a1,b1) / (a2,b2) = (a1/a2, b1/b2)
 
+dup :: a -> (a,a)
+dup x = (x,x)
+

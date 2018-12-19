@@ -1,5 +1,6 @@
 module Util
   ( module Util
+  , dup
   , fmod ) where
 
 import Data.Ratio
@@ -83,9 +84,6 @@ sample f = sampleF f [0..]
 
 sampleF :: RealFrac a => (a -> b) -> [Int] -> [b]
 sampleF f = map (f . (fromRational frame *) . fromIntegral)
-
-dup :: a -> (a,a)
-dup x = (x,x)
 
 isInt :: RealFrac a => a -> Bool
 isInt x = x == fromIntegral (floor x)

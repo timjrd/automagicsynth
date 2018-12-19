@@ -60,6 +60,6 @@ synthScript' (Par a b) = f (synthScript' a) (synthScript' b)
 synthScript' (Note tn dt v hz) = 
   withEnvelope (Envelope 0.006 0.06 0.45 0.3) (fromRational dt)
   $ map (dup (fromRational v) *)
-  $ tone tn (fromRational hz)
+  $ sample $ tone sineTone (fromRational hz)
 
 synthScript' (Rest dt) = replicate (samples dt) $ Fst (0,0)
