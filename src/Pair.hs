@@ -15,3 +15,6 @@ instance (Fractional a, Fractional b) => Fractional (a,b) where
 dup :: a -> (a,a)
 dup x = (x,x)
 
+both :: (a -> b) -> (a,a) -> (b,b)
+both f (x,y) = (f x, f y)
+

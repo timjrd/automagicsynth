@@ -1,6 +1,7 @@
 module Util
   ( module Util
   , dup
+  , both
   , fmod ) where
 
 import Data.Ratio
@@ -109,9 +110,6 @@ groupOn f = groupBy $ \x y -> f x == f y
 
 minimumOn :: (Ord b, Foldable t) => (a -> b) -> t a -> a
 minimumOn f = minimumBy $ \x y -> compare (f x) (f y)
-
-both :: (a -> b) -> (a,a) -> (b,b)
-both f (x,y) = (f x, f y)
 
 lowpass1' :: (Sample -> Sample -> Sample) -> Sample -> [Sample] -> [Sample]
 lowpass1' f _     []  = []

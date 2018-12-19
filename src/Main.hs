@@ -15,12 +15,14 @@ import Tone
 import Script
 import PCM
 
+import Raw
+
 import Graphics.Gnuplot.Simple
 
 main :: IO ()
 -- main = evalRandIO track >>= putPCM
 
-main = putPCM $ sample $ tone sineTone 440
+main = putRaw 1024 $ tone sineTone 440
 
 track :: MonadInterleave m => m [(Sample,Sample)]
 track = do
