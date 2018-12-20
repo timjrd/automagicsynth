@@ -6,5 +6,6 @@
 ############# Builds
 *.hi
 *.o
+*.prof
 dist
 result

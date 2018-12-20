@@ -15,6 +15,7 @@ executable automagicsynth
   main-is: Main.hs
   ghc-options:
     -O2
+    -fprof-auto
     
   other-modules:
     Composition
