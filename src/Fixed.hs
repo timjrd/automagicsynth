@@ -1,6 +1,6 @@
 module Fixed
   ( Fixed
-  , Int64
+  , Int32
   , toIntBits
   , fromIntBits
   , fmod ) where
@@ -13,18 +13,18 @@ import Data.WideWord.Int128
 
 import System.Random
 
-newtype Fixed = Fixed Int64
+newtype Fixed = Fixed Int32
   deriving (Eq, Ord)
 
 toIntBits (Fixed x) = x
 fromIntBits = Fixed
 
-half = 32 :: Int
+half = 16 :: Int
 
-wide :: Int64 -> Int128
+wide :: Int32 -> Int64
 wide = fromIntegral
 
-unwide :: Int128 -> Int64
+unwide :: Int64 -> Int32
 unwide = fromIntegral
 
 left :: Bits a => a -> Int -> a
@@ -88,11 +88,12 @@ instance Show Fixed where
   show = show . fromRational . toRational
 
 instance Floating Fixed where
-  pi    = 3.14159265
+--pi    = 3.14159265
+  pi    = 3.1416
   
   exp   = undefined
   log   = undefined
-
+  
   -- Stolen from
   -- https://github.com/kennyalive/fast-sine-cosine/blob/master/src/main.cpp
 
