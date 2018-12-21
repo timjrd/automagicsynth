@@ -1,6 +1,6 @@
 name: automagicsynth
 version: 0.1.0.0
-synopsis: Generative music software with a custom synthesizer.
+synopsis: A deterministic generative music synthesizer.
 homepage: https://github.com/timjrd/automagicsynth
 license: GPL-3
 license-file: LICENSE

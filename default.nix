@@ -1,5 +1,5 @@
 { pkgs ? import ./pkgs.nix }:
-with import pkgs {};
+with pkgs;
 
 let hsPackages = haskellPackages.override {
   overrides = self: super: {
@@ -13,6 +13,10 @@ let hsPackages = haskellPackages.override {
 
 in (hsPackages.developPackage {
   root = ./.;
-}).overrideAttrs (_:{
+}).overrideAttrs (x: {
   src = builtins.filterSource (path: type: baseNameOf path != "dist") ./.;
+  buildInputs = x.buildInputs ++ [
+    vlc
+    ffmpeg
+  ];
 })
