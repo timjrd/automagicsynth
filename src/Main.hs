@@ -12,8 +12,8 @@ import Shared
 import Composition
 import Tone
 import Wavetable
-import Player
-import Raw
+import Play
+import Render
 
 main = evalRandIO track >>= putRaw 4096 play . initNotes
 
@@ -34,10 +34,10 @@ track = do
     & interleave
   
   let amps = concat
-        [ replicate 2 [0.4 , 0   , 0   , 0   ]
-        , replicate 3 [0.4 , 0.3 , 0   , 0   ]
-        , replicate 4 [0.4 , 0.3 , 0.2 , 0   ] ]
-        ++ repeat     [0.4 , 0.3 , 0.2 , 0.07]
+        [ replicate 2 [0.4 , 0   , 0   , 0  ]
+        , replicate 3 [0.4 , 0.3 , 0   , 0  ]
+        , replicate 4 [0.4 , 0.3 , 0.2 , 0  ] ]
+        ++ repeat     [0.4 , 0.3 , 0.2 , 0.1]
   
   return $ concat $ zipWith4 f [0..] melodies tones amps
   
@@ -53,7 +53,7 @@ track = do
         base = someNote { time = fromIntegral i * dt * n
                         , duration = dt }
 
-        pitched = zipWith (map . (*)) [hz/4, hz/2, hz/2, hz] melody'
+        pitched = zipWith (map . (*)) [hz/2, hz/2, hz, hz*2] melody'
 
         voices = map (seqNotes . joinPitches base) pitched
 
@@ -61,4 +61,4 @@ track = do
           where g w x = x { tone = w }
           
         withAmp = zipWith (map . g) amp withTone
-          where g v x = x { velocity = v * vol }
+          where g v x = x { velocity = const $ v * vol }

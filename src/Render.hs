@@ -1,4 +1,4 @@
-module Raw where
+module Render where
 
 import GHC.ByteOrder
 
@@ -9,7 +9,8 @@ import Data.ByteString
 import System.IO
 
 import Shared
-import Player
+
+type Player a = a -> Number -> (a, (Sample,Sample))
 
 render :: Int -> Int -> Player a -> a -> (a, ByteString)
 render chunk start f a = (b,bs)
@@ -63,3 +64,7 @@ hPutRaw h chunk f init = do
 
 putRaw :: Int -> Player a -> a -> IO ()
 putRaw = hPutRaw stdout
+
+purePlayer :: (Number -> (Sample,Sample)) -> Player ()
+purePlayer f _ t = ((), f t)
+

@@ -9,11 +9,11 @@ import Fixed
 type Number = Fixed
 type Sample = Fixed
 
-halfSampleRate = fromIntegral $ 44100 `div` 2 :: Number
-samplePeriod   = 1 / halfSampleRate / 2       :: Number
+sampleRate   = 44100 :: Number
+samplePeriod = 1 / sampleRate :: Number
 
 samples :: Integral b => Number -> b
-samples t = floor $ t * halfSampleRate * 2
+samples t = floor $ t * samplePeriod
 
 sampleI :: Int -> (Number -> b) -> [b]
 sampleI i f = sampleF f [i..]

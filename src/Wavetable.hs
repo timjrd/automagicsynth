@@ -11,7 +11,7 @@ import Pair
 import Fixed
 
 type Boxed   = Fixed
-type Unboxed = Int32
+type Unboxed = Inner
 box   = fromIntBits
 unbox = toIntBits
 

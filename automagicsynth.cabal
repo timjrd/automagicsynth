@@ -15,7 +15,6 @@ executable automagicsynth
   main-is: Main.hs
   ghc-options:
     -O2
-    -fprof-auto
     
   other-modules:
     Composition
@@ -23,8 +22,8 @@ executable automagicsynth
     Envelope
     Noise
     Hash
-    Raw
-    Player
+    Render
+    Play
     Tone
     Wavetable
     Shared

@@ -1,6 +1,6 @@
 module Fixed
   ( Fixed
-  , Int32
+  , Inner
   , toIntBits
   , fromIntBits
   , fmod ) where
@@ -9,23 +9,19 @@ import Data.Int
 import Data.Bits
 import Data.Ratio
 
-import Data.WideWord.Int128
-
 import System.Random
 
-newtype Fixed = Fixed Int32
+type    Inner = Int64
+newtype Fixed = Fixed Inner
   deriving (Eq, Ord)
 
-toIntBits (Fixed x) = x
-fromIntBits = Fixed
+toIntBits :: Integral a => Fixed -> a
+toIntBits (Fixed x) = fromIntegral x
 
-half = 16 :: Int
+fromIntBits :: Integral a => a -> Fixed
+fromIntBits = Fixed . fromIntegral
 
-wide :: Int32 -> Int64
-wide = fromIntegral
-
-unwide :: Int64 -> Int32
-unwide = fromIntegral
+point = 16 :: Int
 
 left :: Bits a => a -> Int -> a
 left = unsafeShiftL
@@ -36,24 +32,24 @@ right = unsafeShiftR
 instance Num Fixed where
   (Fixed x) + (Fixed y) = Fixed $ x + y
   (Fixed x) - (Fixed y) = Fixed $ x - y
-  (Fixed x) * (Fixed y) = Fixed $ unwide $ (wide x * wide y) `right` half
+  (Fixed x) * (Fixed y) = Fixed $ (x * y) `right` point
   abs    (Fixed x)      = Fixed $ abs x
-  signum (Fixed x)      = Fixed $ signum x `left` half
+  signum (Fixed x)      = Fixed $ signum x `left` point
   negate (Fixed x)      = Fixed $ negate x
-  fromInteger x         = Fixed $ fromInteger x `left` half
+  fromInteger x         = Fixed $ fromInteger x `left` point
 
 instance Fractional Fixed where
   fromRational x        = fromInteger (numerator x) / fromInteger (denominator x)
-  (Fixed x) / (Fixed y) = Fixed $ unwide $ (wide x `left` half) `div` wide y
+  (Fixed x) / (Fixed y) = Fixed $ (x `left` point) `div` y
 
 instance Real Fixed where
-  toRational (Fixed x) = fromIntegral x % (2^half)
+  toRational (Fixed x) = fromIntegral x % (2^point)
 
 instance RealFrac Fixed where
   properFraction (Fixed x) = (fromIntegral n, Fixed f)
     where
-      n = x `right` half
-      f = x - (n `left` half)
+      n = x `right` point
+      f = x - (n `left` point)
 
 instance Bounded Fixed where
   minBound = Fixed minBound
@@ -88,8 +84,7 @@ instance Show Fixed where
   show = show . fromRational . toRational
 
 instance Floating Fixed where
---pi    = 3.14159265
-  pi    = 3.1416
+  pi    = 3.14159265
   
   exp   = undefined
   log   = undefined

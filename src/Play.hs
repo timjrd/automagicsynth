@@ -1,7 +1,5 @@
-module Player
-  ( Player
-  
-  , Note
+module Play
+  ( Note
   , time
   , duration
   , envelope'
@@ -16,9 +14,7 @@ module Player
   , seqNotes
   , parNotes
   , fromPitches
-  , joinPitches
-  
-  , purePlayer ) where
+  , joinPitches ) where
 
 import Data.List
 
@@ -27,15 +23,15 @@ import Wavetable
 import Envelope
 import Tone
 
-type Player a = a -> Number -> (a, (Sample,Sample))
+import Render
 
 data Note = Note
   { time      :: Number
   , duration  :: Number
   , envelope' :: Envelope
   , tone      :: Wavetable
-  , velocity  :: Number
-  , pitch     :: Number }
+  , velocity  :: Number -> Number
+  , pitch     :: Number -> Number }
 
 type Voice = Note
 
@@ -54,8 +50,8 @@ someNote = Note
   , duration  = 1
   , envelope' = someEnvelope
   , tone      = someTone
-  , velocity  = 1
-  , pitch     = 440 }
+  , velocity  = const 1
+  , pitch     = const 440 }
 
 play :: Player ([Note], [Voice])
 play (x:xs, voices) t = ((ys, voices''), sample)
@@ -70,9 +66,10 @@ play (x:xs, voices) t = ((ys, voices''), sample)
       | t <= time x + duration x + release (envelope' x) = (a+b, x:xs)
       | otherwise = (a, xs)
       where
-        b = synth (tone x) (pitch x) t
-          * dup (envelope (envelope' x) (duration x) (t - time x))
-          * dup (velocity x)
+        rt = t - time x
+        b = synth (tone x) (pitch x rt) t
+          * dup (envelope (envelope' x) (duration x) rt)
+          * dup (velocity x rt)
 
 initNotes xs = (xs, [])
 
@@ -86,14 +83,11 @@ parNotes (x:xs) = x : map f xs
   where f y = y { time = time x }
 
 fromPitches :: (RealFrac a) => Note -> [a] -> [Note]
-fromPitches y = map $ \hz -> y { pitch = realToFrac hz }
+fromPitches y = map $ \hz -> y { pitch = const $ realToFrac hz }
 
 joinPitches :: (RealFrac a) => Note -> [a] -> [Note]
 joinPitches y = map f . group
   where
     f ys = y { duration = duration y * fromIntegral (length ys)
-             , pitch    = realToFrac (head ys) }
-
-purePlayer :: (Number -> (Sample,Sample)) -> Player ()
-purePlayer f _ t = ((), f t)
+             , pitch    = const $ realToFrac $ head ys }
 

@@ -4,9 +4,9 @@ with import pkgs {};
 let hsPackages = haskellPackages.override {
   overrides = self: super: {
     mkDerivation = args: super.mkDerivation (args // {
-      enableExecutableProfiling = true;
-      enableLibraryProfiling    = true;
-      doCheck = false;
+      # enableExecutableProfiling = true;
+      # enableLibraryProfiling    = true;
+      # doCheck = false;
     });
   };
 };
