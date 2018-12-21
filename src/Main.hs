@@ -13,7 +13,7 @@ import Composition
 import Tone
 import Wavetable
 import Player
-import Raw
+import Renderer
 
 main = evalRandIO track >>= putRaw 4096 play . initNotes
 
@@ -50,7 +50,7 @@ track = do
     f :: Int -> [[Rational]] -> [Wavetable] -> [Number] -> [Note]
     f i melody' tone' amp = sort $ concat withAmp
       where
-        base = someNote { time = fromIntegral i * dt * n
+        base = someNote { time = toSamples $ fromIntegral i * dt * n
                         , duration = dt }
 
         pitched = zipWith (map . (*)) [hz/4, hz/2, hz/2, hz] melody'
@@ -61,4 +61,4 @@ track = do
           where g w x = x { tone = w }
           
         withAmp = zipWith (map . g) amp withTone
-          where g v x = x { velocity = v * vol }
+          where g v x = x { velocity = const $ v * vol }

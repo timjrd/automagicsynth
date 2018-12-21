@@ -1,25 +1,33 @@
+{-# LANGUAGE BinaryLiterals #-}
+
 module Fixed
   ( Fixed
   , Int32
   , toIntBits
   , fromIntBits
+  , halfBits
+  , left
+  , right
   , fmod ) where
 
 import Data.Int
 import Data.Bits
 import Data.Ratio
 
-import Data.WideWord.Int128
+-- import Data.WideWord.Int128
 
 import System.Random
 
 newtype Fixed = Fixed Int32
   deriving (Eq, Ord)
 
-toIntBits (Fixed x) = x
-fromIntBits = Fixed
+toIntBits :: Integral a => Fixed -> a
+toIntBits (Fixed x) = fromIntegral x
 
-half = 16 :: Int
+fromIntBits :: Integral a => a -> Fixed
+fromIntBits = Fixed . fromIntegral
+
+halfBits = 16 :: Int
 
 wide :: Int32 -> Int64
 wide = fromIntegral
@@ -36,24 +44,24 @@ right = unsafeShiftR
 instance Num Fixed where
   (Fixed x) + (Fixed y) = Fixed $ x + y
   (Fixed x) - (Fixed y) = Fixed $ x - y
-  (Fixed x) * (Fixed y) = Fixed $ unwide $ (wide x * wide y) `right` half
+  (Fixed x) * (Fixed y) = Fixed $ unwide $ (wide x * wide y) `right` halfBits
   abs    (Fixed x)      = Fixed $ abs x
-  signum (Fixed x)      = Fixed $ signum x `left` half
+  signum (Fixed x)      = Fixed $ signum x `left` halfBits
   negate (Fixed x)      = Fixed $ negate x
-  fromInteger x         = Fixed $ fromInteger x `left` half
+  fromInteger x         = Fixed $ fromInteger x `left` halfBits
 
 instance Fractional Fixed where
   fromRational x        = fromInteger (numerator x) / fromInteger (denominator x)
-  (Fixed x) / (Fixed y) = Fixed $ unwide $ (wide x `left` half) `div` wide y
+  (Fixed x) / (Fixed y) = Fixed $ unwide $ (wide x `left` halfBits) `div` wide y
 
 instance Real Fixed where
-  toRational (Fixed x) = fromIntegral x % (2^half)
+  toRational (Fixed x) = fromIntegral x % (2^halfBits)
 
 instance RealFrac Fixed where
   properFraction (Fixed x) = (fromIntegral n, Fixed f)
     where
-      n = x `right` half
-      f = x - (n `left` half)
+      n = x `right` halfBits
+      f = x - (n `left` halfBits)
 
 instance Bounded Fixed where
   minBound = Fixed minBound
@@ -89,7 +97,7 @@ instance Show Fixed where
 
 instance Floating Fixed where
 --pi    = 3.14159265
-  pi    = 3.1416
+  pi    = 3 + Fixed (0b0010010000111111)
   
   exp   = undefined
   log   = undefined

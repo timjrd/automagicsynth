@@ -7,8 +7,7 @@ import Data.List
 
 import qualified Data.Vector.Unboxed as U
 
-import Pair
-import Fixed
+import Shared
 
 type Boxed   = Fixed
 type Unboxed = Int32
@@ -34,14 +33,17 @@ fromList dt xs = Wavetable dt m n ys
     r = U.unsafeIndex xs (k*2+1)
     k = j * m + i
 
-synth :: Wavetable -> Boxed -> Boxed -> (Boxed,Boxed)
+synth :: Wavetable -> Boxed -> Int -> (Boxed,Boxed)
 synth table@(Wavetable dt m n _) hz t = c
   where
-    i  = (t / dt) * fromIntegral m
-    j  = (t * hz) * fromIntegral n
+    -- i  = fromIntegral (t `mod` toSamples dt    ) / dt * fromIntegral m
+    -- j  = fromIntegral (t `mod` toSamples (1/hz)) * hz * fromIntegral n
     
-    di = dup $ i `fmod` 1
-    dj = dup $ j `fmod` 1
+    i  = fromSamples t / dt * fromIntegral m
+    j  = fromSamples t * hz * fromIntegral n
+    
+    di = dup $ i - fromIntegral (floor i)
+    dj = dup $ j - fromIntegral (floor j)
     
     i0 = floor   i `mod` m
     i1 = ceiling i `mod` m

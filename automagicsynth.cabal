@@ -23,7 +23,7 @@ executable automagicsynth
     Envelope
     Noise
     Hash
-    Raw
+    Renderer
     Player
     Tone
     Wavetable
