@@ -1,24 +1,29 @@
 module Fixed
   ( Fixed
-  , Inner
-  , toIntBits
   , fromIntBits
+  , toIntBits
   , fmod ) where
 
-import Data.Int
 import Data.Bits
 import Data.Ratio
+import Data.Int
+import Data.Word
+import Data.WideWord.Int128
 
 import System.Random
 
-type    Inner = Int64
-newtype Fixed = Fixed Inner
+newtype Fixed = Fixed Int128
   deriving (Eq, Ord)
 
-toIntBits (Fixed x) = x
-fromIntBits = Fixed
+type Unboxed = Int
 
-point = 17 :: Int
+fromIntBits :: Int -> Fixed
+fromIntBits = Fixed . fromIntegral
+
+toIntBits :: Fixed -> Int
+toIntBits (Fixed x) = fromIntegral x
+
+point = 32 :: Int
 
 left :: Bits a => a -> Int -> a
 left = unsafeShiftL
@@ -110,11 +115,9 @@ instance Floating Fixed where
   atanh = undefined
 
 instance Random Fixed where
-  random g = (r, g')
+  random g = (Fixed $ fromIntegral i, g')
     where
-      r = fromIntegral i / m
-      (i, g') = randomR (0::Int64, floor m) g
-      m = maxBound
+      (i, g') = randomR (0::Int, 2^point) g
       
   randomR (lo,hi) g = (r', g')
     where

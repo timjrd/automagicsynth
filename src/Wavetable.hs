@@ -11,7 +11,7 @@ import Pair
 import Fixed
 
 type Boxed   = Fixed
-type Unboxed = Inner
+type Unboxed = Int
 box   = fromIntBits
 unbox = toIntBits
 
@@ -40,8 +40,8 @@ synth table@(Wavetable dt m n _) hz t = c
     i  = (t / dt) * fromIntegral m
     j  = (t * hz) * fromIntegral n
     
-    di = dup $ i `fmod` 1
-    dj = dup $ j `fmod` 1
+    di = dup $ i - fromIntegral (floor i)
+    dj = dup $ j - fromIntegral (floor j)
     
     i0 = floor   i `mod` m
     i1 = ceiling i `mod` m
