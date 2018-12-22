@@ -7,7 +7,7 @@ import Data.List
 
 import qualified Data.Vector.Unboxed as U
 
-import Pair
+import Shared
 import Fixed
 
 type Boxed   = Fixed
@@ -15,10 +15,10 @@ type Unboxed = Int
 box   = fromIntBits
 unbox = toIntBits
 
-data Wavetable = Wavetable Boxed Int Int (U.Vector Unboxed)
+data Wavetable = Wavetable Boxed Int Int Boxed (U.Vector Unboxed)
 
 fromList :: Boxed -> [[(Boxed,Boxed)]] -> Wavetable
-fromList dt xs = Wavetable dt m n ys
+fromList dt xs = Wavetable dt m n 0 ys
   where
     m  = length xs
     n  = length $ head xs
@@ -28,18 +28,17 @@ fromList dt xs = Wavetable dt m n ys
       $ transpose xs
 
 (!) :: Wavetable -> (Int,Int) -> (Boxed,Boxed)
-(!) (Wavetable _ m _ xs) (i,j) = (box l, box r)
+(!) (Wavetable _ m _ _ xs) (i,j) = (box l, box r)
   where
     l = U.unsafeIndex xs (k*2)
     r = U.unsafeIndex xs (k*2+1)
     k = j * m + i
 
-synth :: Wavetable -> Boxed -> Boxed -> (Boxed,Boxed)
-synth table@(Wavetable dt m n _) hz t = c
+synth :: Wavetable -> Boxed -> Boxed -> (Wavetable, (Boxed,Boxed))
+synth table@(Wavetable dt m n j ys) hz t = (Wavetable dt m n j' ys, c)
   where
     i  = (t / dt) * fromIntegral m
-    j  = (t * hz) * fromIntegral n
-    
+
     di = dup $ i - fromIntegral (floor i)
     dj = dup $ j - fromIntegral (floor j)
     
@@ -59,4 +58,6 @@ synth table@(Wavetable dt m n _) hz t = c
     b  = (1-dj) * b0 + dj * b1
     
     c  = (1-di) * a + di * b
+
+    j' = j + (hz / sampleRate) * fromIntegral n
 

@@ -1,18 +1,18 @@
 module Play
-  ( Note
+  ( Note(Note)
   , time
   , duration
   , envelope'
   , tone
   , velocity
   , pitch
-  , someNote
   
   , play
   , initNotes
   
   , seqNotes
   , parNotes
+  , fuseNotes
   , fromPitches
   , joinPitches ) where
 
@@ -21,7 +21,6 @@ import Data.List
 import Shared
 import Wavetable
 import Envelope
-import Tone
 
 import Render
 
@@ -45,14 +44,6 @@ instance Show Note where
   show x = show ( floor $ time     x * 1000
                 , floor $ duration x * 1000 )
 
-someNote = Note
-  { time      = 0
-  , duration  = 1
-  , envelope' = someEnvelope
-  , tone      = someTone
-  , velocity  = const 1
-  , pitch     = const 440 }
-
 play :: Player ([Note], [Voice])
 play (x:xs, voices) t = ((ys, voices''), sample)
   where
@@ -63,11 +54,13 @@ play (x:xs, voices) t = ((ys, voices''), sample)
     (sample, voices') = foldl' reduce ((0,0), []) voices
     
     reduce (a, xs) x
-      | t <= time x + duration x + release (envelope' x) = (a+b, x:xs)
+      | t <= time x + duration x + release (envelope' x) = (a+b, y:xs)
       | otherwise = (a, xs)
       where
         rt = t - time x
-        b = synth (tone x) (pitch x rt) t
+        (tn,v) = synth (tone x) (pitch x rt) t
+        y = x { tone = tn }
+        b = v
           * dup (envelope (envelope' x) (duration x) rt)
           * dup (velocity x rt)
 
@@ -82,6 +75,15 @@ parNotes []     = []
 parNotes (x:xs) = x : map f xs
   where f y = y { time = time x }
 
+fuseNotes _ [ ] = [ ]
+fuseNotes _ [x] = [x]
+fuseNotes k (x0:x1:xs) = x0 { pitch = newPitch } : fuseNotes k (x1:xs)
+  where
+    fromPitch = pitch x0 0
+    toPitch   = pitch x1 0
+    dt        = duration x0
+    newPitch  = ramp (dt*k) dt fromPitch toPitch
+
 fromPitches :: (RealFrac a) => Note -> [a] -> [Note]
 fromPitches y = map $ \hz -> y { pitch = const $ realToFrac hz }
 
@@ -91,3 +93,4 @@ joinPitches y = map f . group
     f ys = y { duration = duration y * fromIntegral (length ys)
              , pitch    = const $ realToFrac $ head ys }
 
+           

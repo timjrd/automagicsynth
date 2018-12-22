@@ -12,15 +12,16 @@ import Data.WideWord.Int128
 
 import System.Random
 
+import Hash
+import Noise
+
 newtype Fixed = Fixed Int128
   deriving (Eq, Ord)
 
-type Unboxed = Int
-
-fromIntBits :: Int -> Fixed
+fromIntBits :: Integral a => a -> Fixed
 fromIntBits = Fixed . fromIntegral
 
-toIntBits :: Fixed -> Int
+toIntBits :: Integral a => Fixed -> a
 toIntBits (Fixed x) = fromIntegral x
 
 point = 32 :: Int
@@ -123,6 +124,12 @@ instance Random Fixed where
     where
       r' = lo + r * (hi-lo)
       (r, g') = random g
+
+instance Hashable Fixed where
+  hash = toIntBits
+
+instance Noise Fixed where
+  noise = fromIntBits . (`right` point) . hash
 
 fmod :: RealFrac a => a -> a -> a
 fmod a b = a - n*b

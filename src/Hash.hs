@@ -70,3 +70,7 @@ instance Hashable Integer where
 
 instance (Integral a) => Hashable (Ratio a) where
   hash x = toInteger (numerator x) <#> toInteger (denominator x)
+
+instance (Hashable a, Hashable b) => Hashable (a,b) where
+  hash = uncurry (<#>)
+

@@ -1,5 +1,6 @@
 module Noise
   ( module Hash
+  , Noise
   , noise ) where
 
 import Data.Ratio
