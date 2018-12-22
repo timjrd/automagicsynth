@@ -15,13 +15,10 @@ type    Inner = Int64
 newtype Fixed = Fixed Inner
   deriving (Eq, Ord)
 
-toIntBits :: Integral a => Fixed -> a
-toIntBits (Fixed x) = fromIntegral x
+toIntBits (Fixed x) = x
+fromIntBits = Fixed
 
-fromIntBits :: Integral a => a -> Fixed
-fromIntBits = Fixed . fromIntegral
-
-point = 16 :: Int
+point = 17 :: Int
 
 left :: Bits a => a -> Int -> a
 left = unsafeShiftL

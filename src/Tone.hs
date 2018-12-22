@@ -6,10 +6,12 @@ import Shared
 import Wavetable
 
 fromLength = 512 -- 2^9
-fromHz     = 1 / (samplePeriod * fromIntegral fromLength)
+fromHz     = sampleRate / fromIntegral fromLength
 
 someTone = fromList 1 [take fromLength $ sample f]
   where f t = dup $ sin $ 2*pi * fromHz * t
+
+
 
 normalize :: [Sample] -> [Sample]
 normalize xs

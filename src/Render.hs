@@ -15,14 +15,14 @@ type Player a = a -> Number -> (a, (Sample,Sample))
 render :: Int -> Int -> Player a -> a -> (a, ByteString)
 render chunk start f a = (b,bs)
   where
-    t0  = samplePeriod * fromIntegral chunk * fromIntegral start
-    n   = chunk * 2 * 2
+    t0 = fromIntegral chunk / sampleRate * fromIntegral start
+    n  = chunk * 2 * 2
 
     (bs, Just (_, _, b)) = unfoldrN n build (((0,0), (0,0)), 0::Int, a)
     
     build (bytes, i, a) = Just (byte, (bytes', i+1, b))
       where
-        t = t0 + fromIntegral (i `div` 4) * samplePeriod
+        t = t0 + fromIntegral (i `div` 4) / sampleRate
         j = i `mod` 4
         
         (b, bytes'@((l0,l1), (r0,r1))) =

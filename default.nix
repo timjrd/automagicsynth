@@ -18,5 +18,6 @@ in (hsPackages.developPackage {
   buildInputs = x.buildInputs ++ [
     vlc
     ffmpeg
+    gnuplot
   ];
 })
