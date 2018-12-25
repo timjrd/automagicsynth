@@ -1,6 +1,7 @@
 module Wavetable
   ( Wavetable
   , fromList
+  , toList'
   , synth ) where
 
 import Data.List
@@ -26,6 +27,14 @@ fromList dt xs = Wavetable dt m n 0 ys
       $ concatMap (\(l,r) -> [unbox l, unbox r])
       $ concat
       $ transpose xs
+
+toList' :: Wavetable -> (Boxed -> Boxed) -> [(Boxed,Boxed)]
+toList' table hz = f 0 table
+  where
+    f i table = s : f (i+1) table'
+      where
+        t = fromIntegral i / sampleRate
+        (table', s) = synth table (hz t) t
 
 (!) :: Wavetable -> (Int,Int) -> (Boxed,Boxed)
 (!) (Wavetable _ m _ _ xs) (i,j) = (box l, box r)

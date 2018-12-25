@@ -2,7 +2,7 @@ module Play
   ( Note(Note)
   , time
   , duration
-  , envelope'
+  , noteEnvelope
   , tone
   , velocity
   , pitch
@@ -25,12 +25,12 @@ import Envelope
 import Render
 
 data Note = Note
-  { time      :: Number
-  , duration  :: Number
-  , envelope' :: Envelope
-  , tone      :: Wavetable
-  , velocity  :: Number -> Number
-  , pitch     :: Number -> Number }
+  { time         :: Number
+  , duration     :: Number
+  , noteEnvelope :: Envelope
+  , tone         :: Wavetable
+  , velocity     :: Number -> Number
+  , pitch        :: Number -> Number }
 
 type Voice = Note
 
@@ -54,14 +54,14 @@ play (x:xs, voices) t = ((ys, voices''), sample)
     (sample, voices') = foldl' reduce ((0,0), []) voices
     
     reduce (a, xs) x
-      | t <= time x + duration x + release (envelope' x) = (a+b, y:xs)
+      | t <= time x + duration x + release (noteEnvelope x) = (a+b, y:xs)
       | otherwise = (a, xs)
       where
         rt = t - time x
         (tn,v) = synth (tone x) (pitch x rt) t
         y = x { tone = tn }
         b = v
-          * dup (envelope (envelope' x) (duration x) rt)
+          * dup (envelope (noteEnvelope x) (duration x) rt)
           * dup (velocity x rt)
 
 initNotes xs = (xs, [])
