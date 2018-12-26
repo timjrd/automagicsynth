@@ -2,6 +2,7 @@ module Tone where
 
 import Control.Monad.Random hiding (fromList)
 
+import Data.Function ((&))
 import Data.List
 
 import Shared
@@ -13,7 +14,7 @@ import Play
 
 import Graphics.Gnuplot.Simple
 
-data Tone = Tone Number [ ([Int],[Int]) ]
+data Tone = Tone Number [ ([Bool],[Bool]) ]
 data Drum = Drum { fromPitch  :: Number
                  , toPitch    :: Number
                  , fromNoise  :: Number
@@ -107,70 +108,82 @@ randomTone = do
   subs <- replicateM m randomSubTone
   return $ Tone dt subs
 
-randomSubTone :: MonadInterleave m => m ([Int],[Int])
+randomSubTone :: MonadInterleave m => m ([Bool],[Bool])
 randomSubTone = do
-  n  <- getRandomR (1,10)
-  let steps = 2*n+1
-  ls <- randomOrdinates steps
-  rs <- randomOrdinates steps
+  n  <- getRandomR (1,32)
+  let steps = 2*n
+  ls <- randomWalk steps
+  rs <- randomWalk steps
   return (ls,rs)
 
-randomOrdinates :: MonadInterleave m => Int -> m [Int]
-randomOrdinates steps =
-  smoothOrdinates
-  <$> head
-  <$> solve steps 1 (ordinates steps)
+randomWalk :: MonadInterleave m => Int -> m [Bool]
+randomWalk steps = head <$> solve steps 1 (walk steps)
 
-smoothOrdinates :: [Int] -> [Int]
-smoothOrdinates ( x0 : x1 : x2 : xs )
-  | signum (x1-x0) == signum (x2-x1) = smoothOrdinates (x0 : x2 : xs)
-  | otherwise = x0 : smoothOrdinates (x1 : x2 : xs)
-smoothOrdinates xs = xs
-
-ordinates :: Int -> Constraint (Int,Int) () Int
-ordinates steps = Constraint (steps, 0) (repeat id) (repeat f)
+walk :: Int -> Constraint (Int,Int) () Bool
+walk steps = Constraint (steps, 0) (repeat id) (repeat f)
   where
-    f (0,0) _ = [(0,0)]
-    f (0,_) _ = []
-    f (i,x) _
+    f (1,-1) _ = [((0,0), True )]
+    f (1, 1) _ = [((0,0), False)]
+    f (1, _) _ = []
+    f (i, x) _
       | abs x > i = []
-      | otherwise = [ ((i-1, x+1), x)
-                    , ((i-1, x-1), x) ]
+      | otherwise = [ ((i-1, x+1), True )
+                    , ((i-1, x-1), False) ]
 
 mkTone :: Tone -> Wavetable
-mkTone (Tone dt ys) = fromList dt
-  $ map (uncurry zip . both polysinPeriod) ys
+mkTone (Tone dt ds) = fromList dt
+  $ map (uncurry zip . both polysinPeriod) ds
   
-polysinPeriod :: [Int] -> [Sample]
+polysinPeriod :: [Bool] -> [Sample]
 polysinPeriod = normalize . samplePeriod . polysin
 
-polysin :: [Int] -> (Number -> Number)
-polysin ys = f n ys
+polysin :: [Bool] -> (Number -> Number)
+polysin [] = error "polysin: empty list"
+polysin ds = f points . ramp 0 1 0 mx
   where
-    n = steps ys - 1
+    points = cycle ds
+      & dropWhile (== head ds)
+      & take (length ds)
+      & toOrdinates
+      & skipOrdinates
+      & toPoints
 
-    steps (y0:y1:ys) = abs (y1 - y0) + steps (y1:ys)
-    steps [_] = 1
-    steps []  = 0
+    mx = fst $ last points
     
-    f 0 _ = const 0
-    f i (y0:y1:ys) = \x ->
-      ( ramp (-1) 1 lo hi
-        $ sin
-        $ ramp x0 x1 t0 t1
-        $ x ) + f (i-di) (y1:ys) x
+    f (a:b:s) = \x -> polysinSlice a b x + f (b:s) x
+    f _ = const 0
+
+polysinSlice :: (Number,Number) -> (Number,Number) -> (Number -> Number)
+polysinSlice (x0,y0) (x1,y1) =
+  ramp (-1) 1 (min y0 y1) (max y0 y1)
+  . sin
+  . ramp x0 x1 t0 t1
+  where
+    (t0,t1) = if y0 < y1
+      then (-pi/2,  pi/2) -- up
+      else ( pi/2, -pi/2) -- down
+
+toPoints :: [Int] -> [(Number,Number)]
+toPoints = ((0,0):) . f 0
+  where
+    f x0 (y0:y1:ys) = (x1, fromIntegral y1) : f x1 (y1:ys)
       where
-        lo = fromIntegral $ min y0 y1
-        hi = fromIntegral $ max y0 y1
-        (t0,t1) = if y0 < y1
-          then (-pi/2,  pi/2) -- up
-          else ( pi/2, -pi/2) -- down
-        x0 = fromIntegral (n-i)    / fromIntegral n
-        x1 = fromIntegral (n-i+di) / fromIntegral n
-        di = abs $ y1 - y0
-        
-    f _ _ = error "polysin: at least 2 ordinate values required"
-    
+        dy = fromIntegral $ abs $ y1 - y0
+        k  = 2 * acos ((dy-1)/dy) / pi
+        x1 = x0 + k*dy
+    f _ _ = []
+
+toOrdinates :: [Bool] -> [Int]
+toOrdinates = (0:) . snd . mapAccumL f 0
+  where f x True  = dup $ x + 1
+        f x False = dup $ x - 1
+
+skipOrdinates :: [Int] -> [Int]
+skipOrdinates ( x0 : x1 : x2 : xs )
+  | signum (x1-x0) == signum (x2-x1) = skipOrdinates (x0 : x2 : xs)
+  | otherwise = x0 : skipOrdinates (x1 : x2 : xs)
+skipOrdinates xs = xs
+             
 normalize :: [Sample] -> [Sample]
 normalize xs
   | x1 == x2  = map (const $ max (-1) $ min 1 x1) xs

@@ -107,7 +107,20 @@ instance Floating Fixed where
   cos x = sin $ pi/2 - x
   
   asin  = undefined
-  acos  = undefined
+
+  -- Stolen from
+  -- https://stackoverflow.com/a/36387954/3776835
+  
+  acos x = pi/2 + (a * x + b * pow3 x) / (1 + c * pow2 x + d * pow4 x)
+    where
+      pow2 x = x*x
+      pow3 x = x*x*x
+      pow4 x = x*x*x*x
+      a = -0.939115566365855
+      b =  0.9217841528914573
+      c = -1.2845906244690837
+      d =  0.295624144969963174
+  
   atan  = undefined
   sinh  = undefined
   cosh  = undefined
