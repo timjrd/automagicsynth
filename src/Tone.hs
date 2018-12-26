@@ -173,9 +173,11 @@ toPoints = ((0,0):) . f 0
   where
     f x0 (y0:y1:ys) = (x1, fromIntegral y1) : f x1 (y1:ys)
       where
+        x1 = x0 + k*dy
         dy = fromIntegral $ abs $ y1 - y0
         k  = 2 * acos ((dy-1)/dy) / pi
-        x1 = x0 + k*dy
+        -- k solution to the equation:
+        -- dy * cos((pi/2) * k) - dy + 1 = 0
     f _ _ = []
 
 toOrdinates :: [Bool] -> [Int]
