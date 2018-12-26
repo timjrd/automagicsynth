@@ -32,15 +32,29 @@ track = do
     & fmap concat
     & interleave
   
-  tones <- mkTone <$> randomTone
+  tones <- randomTone 8 25
+    & fmap mkTone
     & repeat
     & sequence
     & fmap (splitEvery 4)
     & fmap (concatMap (replicate 3))
     & interleave
 
-  kick  <- mkDrum <$> randomKick
-  snare <- mkDrum <$> randomSnare
+  kicks <- randomKick
+    & fmap mkDrum
+    & fmap (replicate 8)
+    & repeat
+    & sequence
+    & fmap concat
+    & interleave
+
+  snares <- randomSnare
+    & fmap mkDrum
+    & fmap (replicate 8)
+    & repeat
+    & sequence
+    & fmap concat
+    & interleave
     
   let amps = concat
         [ replicate 2 [0.4 , 0   , 0   , 0   ]
@@ -48,7 +62,7 @@ track = do
         , replicate 4 [0.4 , 0.3 , 0.2 , 0   ] ]
         ++ repeat     [0.4 , 0.3 , 0.2 , 0.07]
   
-  return $ concat $ zipWith4 (f kick snare) [0..] melodies tones amps
+  return $ concat $ zipWith6 f [0..] melodies tones amps kicks snares
   
   where
     hz  = 440
@@ -56,7 +70,7 @@ track = do
     dt  = 0.12
     n   = 32
     
-    f kick snare i melody' tone' amp = sort $ concat $ withAmp -- kicks : snares : withAmp
+    f i melody' tone' amp kick snare = sort $ concat $ kicks : snares : withAmp
       where
         t0 = fromIntegral i * dt * n
         
@@ -71,7 +85,7 @@ track = do
         fused = zipWith (&) voices
           [id, id, id, fuse]
           where
-            fuse = (map g) . fuseNotes 0.9
+            fuse = (map g) . fuseNotes 0.7
             g x = x { noteEnvelope = Envelope 0.01 1 1 0.01 }
         
         withTone = zipWith (map . g) tone' fused
@@ -80,8 +94,8 @@ track = do
         withAmp = zipWith (map . g) amp withTone
           where g v x = x { velocity = const $ v * vol }
 
-        kicks1 = rep 4 0     0.3 kick
-        kicks2 = rep 4 0.125 0.3 kick
+        kicks1 = rep 4 0    0.3 kick
+        kicks2 = rep 4 0.25 0.3 kick
         kicks  = kicks1 ++ kicks2
         snares = rep 4 0.5 0.2 snare
 

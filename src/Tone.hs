@@ -20,11 +20,10 @@ data Drum = Drum { fromPitch  :: Number
                  , fromNoise  :: Number
                  , toNoise    :: Number
                  , drumAttack :: Number
-                 , drumDecay  :: Number
-                 , drumTone   :: Tone }
+                 , drumDecay  :: Number }
 
 debug = do
-  r <- evalRandIO randomTone
+  r <- evalRandIO $ randomTone 1 30
   plotList []
     $ take (samples $ 2/hz)
     $ map (toRational . fst)
@@ -38,7 +37,9 @@ fromHz = sampleRate / fromIntegral fromLength
 someTone = fromList 1 [samplePeriod f]
   where f x = dup $ sin $ 2*pi * x
 
-noiseTone = fromList 1 [samplePeriod noise]
+someTone' = Tone 1 [([True,False], [True,False])]
+
+noiseTone = fromList 1 [map noise [1::Int .. floor sampleRate]]
 
 someNote = Note
   { time         = 0
@@ -48,40 +49,44 @@ someNote = Note
   , velocity     = const 1
   , pitch        = const 440 }
 
-randomKick :: MonadInterleave m => m Drum
-randomKick = do
-  fromPitch'  <- getRandomR (80,90)
-  toPitch'    <- getRandomR (fromPitch'/1.5, fromPitch'/2)
-  drumAttack' <- getRandomR (0.001, 0.01)
-  drumDecay'  <- getRandomR (0.5, 3)
-  drumTone'   <- randomTone
-  return Drum { fromPitch  = fromPitch'
-              , toPitch    = toPitch'
+randomDrum :: MonadInterleave m => m Drum
+randomDrum = do
+  drumAttack' <- getRandomR (0.001, 0.005)
+  drumDecay'  <- getRandomR (0.1, 0.5)
+  return Drum { fromPitch  = 440
+              , toPitch    = 440
               , fromNoise  = 0
               , toNoise    = 0
               , drumAttack = drumAttack'
-              , drumDecay  = drumDecay'
-              , drumTone   = drumTone' }
+              , drumDecay  = drumDecay' }
+
+randomKick :: MonadInterleave m => m Drum
+randomKick = do
+  base       <- randomDrum
+  fromPitch' <- getRandomR (90,100)
+  toPitch'   <- getRandomR (fromPitch'/1.5, fromPitch'/2)
+  return base { fromPitch  = fromPitch'
+              , toPitch    = toPitch' }
 
 randomSnare :: MonadInterleave m => m Drum
 randomSnare = do
-  fromPitch'  <- getRandomR (100,300)
-  toPitch'    <- getRandomR (fromPitch'/1.1, fromPitch'/1.4)
-  fromNoise'  <- getRandomR (0.01, 0.2)
-  toNoise'    <- getRandomR (0.3, 1)
-  drumAttack' <- getRandomR (0.001, 0.01)
-  drumDecay'  <- getRandomR (0.5, 3)
-  drumTone'   <- randomTone
-  return Drum { fromPitch  = fromPitch'
+  base       <- randomDrum
+  fromPitch' <- getRandomR (150,200)
+  toPitch'   <- getRandomR (fromPitch'/1.01, fromPitch'/1.1)
+  fromNoise' <- getRandomR (0.05, 0.1)
+  toNoise'   <- getRandomR (0.3, 0.8)
+  return base { fromPitch  = fromPitch'
               , toPitch    = toPitch'
               , fromNoise  = fromNoise'
-              , toNoise    = toNoise'
-              , drumAttack = drumAttack'
-              , drumDecay  = drumDecay'
-              , drumTone   = drumTone' }
+              , toNoise    = toNoise' }
+
+-- See:
+-- https://www.reddit.com/r/edmproduction/comments/1qbt1g/synthesize_your_own_drums_today/
 
 mkDrum :: Drum -> [Note]
-mkDrum x = [toneNote, noiseNote]
+mkDrum x = if fromNoise x == 0 && toNoise x == 0
+  then [toneNote]
+  else [toneNote, noiseNote]
   where
     dt  = drumAttack x + drumDecay x
     env = Envelope (drumAttack x) (drumDecay x) 0 0
@@ -89,7 +94,7 @@ mkDrum x = [toneNote, noiseNote]
       { time         = 0
       , duration     = dt
       , noteEnvelope = env
-      , tone         = mkTone (drumTone x)
+      , tone         = someTone
       , velocity     = ramp 0 dt (1-fromNoise x) (1-toNoise x)
       , pitch        = ramp 0 dt (fromPitch x) (toPitch x) }
     noiseNote = Note
@@ -98,19 +103,19 @@ mkDrum x = [toneNote, noiseNote]
       , noteEnvelope = env
       , tone         = noiseTone
       , velocity     = ramp 0 dt (fromNoise x) (toNoise x)
-      , pitch        = const 440 }
+      , pitch        = const 1 }
         
-randomTone :: MonadInterleave m => m Tone
-randomTone = do
-  m    <- getRandomR (2,8)
+randomTone :: MonadInterleave m => Int -> Int -> m Tone
+randomTone mm roughness = do
+  m    <- getRandomR (1, max 1 mm)
   dt   <- getRandomR ( fromIntegral m * 0.1
                      , fromIntegral m * 2 )
-  subs <- replicateM m randomSubTone
+  subs <- replicateM m $ randomSubTone roughness
   return $ Tone dt subs
 
-randomSubTone :: MonadInterleave m => m ([Bool],[Bool])
-randomSubTone = do
-  n  <- getRandomR (1,32)
+randomSubTone :: MonadInterleave m => Int -> m ([Bool],[Bool])
+randomSubTone roughness = do
+  n  <- getRandomR (1, max 1 roughness)
   let steps = 2*n
   ls <- randomWalk steps
   rs <- randomWalk steps
