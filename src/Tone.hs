@@ -5,6 +5,7 @@ import Control.Monad.Random hiding (fromList)
 import Data.List
 
 import Shared
+import Constraint
 import Noise
 import Envelope
 import Wavetable
@@ -12,7 +13,7 @@ import Play
 
 import Graphics.Gnuplot.Simple
 
-data Tone = Tone Number [[ ((Number,Number), (Number,Number)) ]]
+data Tone = Tone Number [ ([Int],[Int]) ]
 data Drum = Drum { fromPitch  :: Number
                  , toPitch    :: Number
                  , fromNoise  :: Number
@@ -22,7 +23,7 @@ data Drum = Drum { fromPitch  :: Number
                  , drumTone   :: Tone }
 
 debug = do
-  r <- randomTone
+  r <- evalRandIO randomTone
   plotList []
     $ take (samples $ 2/hz)
     $ map (toRational . fst)
@@ -46,7 +47,7 @@ someNote = Note
   , velocity     = const 1
   , pitch        = const 440 }
 
-randomKick :: MonadRandom m => m Drum
+randomKick :: MonadInterleave m => m Drum
 randomKick = do
   fromPitch'  <- getRandomR (80,90)
   toPitch'    <- getRandomR (fromPitch'/1.5, fromPitch'/2)
@@ -61,7 +62,7 @@ randomKick = do
               , drumDecay  = drumDecay'
               , drumTone   = drumTone' }
 
-randomSnare :: MonadRandom m => m Drum
+randomSnare :: MonadInterleave m => m Drum
 randomSnare = do
   fromPitch'  <- getRandomR (100,300)
   toPitch'    <- getRandomR (fromPitch'/1.1, fromPitch'/1.4)
@@ -98,80 +99,78 @@ mkDrum x = [toneNote, noiseNote]
       , velocity     = ramp 0 dt (fromNoise x) (toNoise x)
       , pitch        = const 440 }
         
-randomTone :: MonadRandom m => m Tone
+randomTone :: MonadInterleave m => m Tone
 randomTone = do
-  m    <- getRandomR mRange
-  dt   <- getRandomR ( fromIntegral m * fst dtRange
-                     , fromIntegral m * snd dtRange )
+  m    <- getRandomR (2,8)
+  dt   <- getRandomR ( fromIntegral m * 0.1
+                     , fromIntegral m * 2 )
   subs <- replicateM m randomSubTone
   return $ Tone dt subs
-  where
-    mRange  = (2,8)
-    dtRange = (0.3, 2)
 
-randomSubTone :: MonadRandom m => m [ ((Number,Number), (Number,Number)) ]
+randomSubTone :: MonadInterleave m => m ([Int],[Int])
 randomSubTone = do
-  n <- getRandomR nRange
-  replicateM n randomControl
-  where
-    nRange = (1,3)
+  n  <- getRandomR (1,10)
+  let steps = 2*n+1
+  ls <- randomOrdinates steps
+  rs <- randomOrdinates steps
+  return (ls,rs)
 
-randomControl :: MonadRandom m => m ((Number,Number), (Number,Number))
-randomControl = do
-  l3 <- getRandomR (-1,1)
-  l1 <- getRandomR (l3 - roughness, l3 + roughness)
+randomOrdinates :: MonadInterleave m => Int -> m [Int]
+randomOrdinates steps =
+  smoothOrdinates
+  <$> head
+  <$> solve steps 1 (ordinates steps)
 
-  r3 <- getRandomR (-1,1)
-  r1 <- getRandomR (r3 - roughness, r3 + roughness)
-  
-  return ((l1,l3), (r1,r3))
+smoothOrdinates :: [Int] -> [Int]
+smoothOrdinates ( x0 : x1 : x2 : xs )
+  | signum (x1-x0) == signum (x2-x1) = smoothOrdinates (x0 : x2 : xs)
+  | otherwise = x0 : smoothOrdinates (x1 : x2 : xs)
+smoothOrdinates xs = xs
+
+ordinates :: Int -> Constraint (Int,Int) () Int
+ordinates steps = Constraint (steps, 0) (repeat id) (repeat f)
   where
-    roughness = 0.1
+    f (0,0) _ = [(0,0)]
+    f (0,_) _ = []
+    f (i,x) _
+      | abs x > i = []
+      | otherwise = [ ((i-1, x+1), x)
+                    , ((i-1, x-1), x) ]
 
 mkTone :: Tone -> Wavetable
 mkTone (Tone dt ys) = fromList dt
-  $ map (uncurry zip . both bezierSynth . unzip) ys
+  $ map (uncurry zip . both polysinPeriod) ys
   
--- See:
--- https://math.stackexchange.com/a/2571749
--- http://www.algosome.com/articles/continuous-bezier-curve-line.html
+polysinPeriod :: [Int] -> [Sample]
+polysinPeriod = normalize . samplePeriod . polysin
 
-bezierSine = [(1,0), (0,1)]
-
-bezierSynth :: [(Number,Number)] -> [Sample]
-bezierSynth ys = normalize
-  $ samplePeriod
-  $ reduce
-  $ polybezier n
-  $ cycle ys
+polysin :: [Int] -> (Number -> Number)
+polysin ys = f n ys
   where
-    n = length ys
-    d = 1 / fromIntegral n
+    n = steps ys - 1
 
-    err = error "bezierSynth: empty list"
-    polybezier _      []  = err
-    polybezier _ (  _:[]) = err
-    polybezier _ (_:_:[]) = err
-
-    polybezier 0 _ = []
-    polybezier i ( (_,y0) : a@(y1,y3) : b@(b1,_) : ys ) =
-      bezier y0 y1 y2 y3 . f : polybezier (i-1) (a:b:ys)
-      where
-        y2  = 2 * y3 - b1
-        f x = max 0 $ min 1 $
-          (x - (fromIntegral (n-i) * d)) / d
+    steps (y0:y1:ys) = abs (y1 - y0) + steps (y1:ys)
+    steps [_] = 1
+    steps []  = 0
     
-    reduce fs x = foldl' (\s f -> s + f x) 0 fs
+    f 0 _ = const 0
+    f i (y0:y1:ys) = \x ->
+      ( ramp (-1) 1 lo hi
+        $ sin
+        $ ramp x0 x1 t0 t1
+        $ x ) + f (i-di) (y1:ys) x
+      where
+        lo = fromIntegral $ min y0 y1
+        hi = fromIntegral $ max y0 y1
+        (t0,t1) = if y0 < y1
+          then (-pi/2,  pi/2) -- up
+          else ( pi/2, -pi/2) -- down
+        x0 = fromIntegral (n-i)    / fromIntegral n
+        x1 = fromIntegral (n-i+di) / fromIntegral n
+        di = abs $ y1 - y0
         
-bezier y0 y1 y2 y3 x =
-  pow3 (1-x) * y0
-  + 3 * x * pow2 (1 - x) * y1
-  + 3 * pow2 x * (1 - x) * y2
-  + pow3 x * y3
-  where
-    pow2 x = x*x
-    pow3 x = x*x*x
-
+    f _ _ = error "polysin: at least 2 ordinate values required"
+    
 normalize :: [Sample] -> [Sample]
 normalize xs
   | x1 == x2  = map (const $ max (-1) $ min 1 x1) xs
