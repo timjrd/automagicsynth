@@ -17,6 +17,7 @@ executable automagicsynth
     -O2
     
   other-modules:
+    Rhythm
     Composition
     Constraint
     Envelope

@@ -15,14 +15,45 @@ import Envelope
 import Wavetable
 import Play
 import Render
+import Rhythm
 
 -- run time  : 1m35,313s
 -- track time: 3m16s
 -- speedup   : 2x
 
-main = evalRandIO track >>= putRaw 4096 play . initNotes
+main = evalRandIO beats >>= putRaw 4096 play . initNotes
+-- main = evalRandIO track >>= putRaw 4096 play . initNotes
 -- main = putRaw 4096 (purePlayer $ \t -> dup $ sin $ 2*pi * 440 * t) ()
 
+beats :: MonadInterleave m => m [Note]
+beats = do
+  kick  <- mkDrum <$> randomKick
+  snare <- mkDrum <$> randomSnare
+  kr    <- rhythm 7 2
+  sr    <- rhythm 5 2
+  
+  let kn = length kr
+      sn = length sr
+
+  return $ cycle' $ sort $
+    concatMap (beat kn kick) (zip [1..] kr)
+    ++ concatMap (beat sn snare) (zip [1..] sr)
+  
+  where
+    dt = 6
+    
+    beat _ _  (_,False) = []
+    beat n xs (i,True)  = map f xs
+      where
+        f x = x { time = dt * fromIntegral i / fromIntegral n
+                , velocity = (*0.5) . velocity x }
+
+    cycle' = concatMap f . zip [0..] . repeat
+      where
+        f (i,xs) = map g xs
+          where
+            g x = x { time = time x + dt * fromIntegral i }
+  
 track :: MonadInterleave m => m [Note]
 track = do  
   melodies <- melody
