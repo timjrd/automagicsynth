@@ -1,6 +1,6 @@
 module Envelope where
 
-import Shared
+import Util
 
 data Envelope = Envelope
   { attack  :: Number

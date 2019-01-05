@@ -27,7 +27,7 @@ executable automagicsynth
     Play
     Tone
     Wavetable
-    Shared
+    Filters            
     Util
     Fixed
     Pair

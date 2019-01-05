@@ -7,8 +7,7 @@ import Data.List
 
 import Control.Monad.Random
 
-import Shared
-
+import Util
 import Composition
 import Tone
 import Envelope
@@ -67,10 +66,10 @@ track = do
     & fmap mkTone
     & repeat
     & sequence
-    & fmap (splitEvery 4)
+    & fmap (chunksOf 4)
     & fmap (concatMap (replicate 3))
     & interleave
-
+  
   kicks <- randomKick
     & fmap mkDrum
     & fmap (replicate 8)
@@ -78,7 +77,7 @@ track = do
     & sequence
     & fmap concat
     & interleave
-
+  
   snares <- randomSnare
     & fmap mkDrum
     & fmap (replicate 8)

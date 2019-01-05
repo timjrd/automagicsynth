@@ -5,7 +5,7 @@ import Control.Monad.Random hiding (fromList)
 import Data.Function ((&))
 import Data.List
 
-import Shared
+import Util
 import Constraint
 import Noise
 import Envelope

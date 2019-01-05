@@ -8,7 +8,7 @@ import Data.List
 
 import qualified Data.Vector.Unboxed as U
 
-import Shared
+import Util
 import Fixed
 
 type Boxed   = Fixed

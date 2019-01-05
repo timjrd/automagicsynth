@@ -8,7 +8,7 @@ import Data.ByteString
 
 import System.IO
 
-import Shared
+import Util
 
 type Player a = a -> Number -> (a, (Sample,Sample))
 

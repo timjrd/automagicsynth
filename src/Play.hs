@@ -18,7 +18,7 @@ module Play
 
 import Data.List
 
-import Shared
+import Util
 import Wavetable
 import Envelope
 
