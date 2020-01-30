@@ -20,8 +20,8 @@ import Rhythm
 -- track time: 3m16s
 -- speedup   : 2x
 
-main = evalRandIO beats >>= putRaw 4096 play . initNotes
--- main = evalRandIO track >>= putRaw 4096 play . initNotes
+-- main = evalRandIO beats >>= putRaw 4096 play . initNotes
+main = evalRandIO track >>= putRaw 4096 play . initNotes
 -- main = putRaw 4096 (purePlayer $ \t -> dup $ sin $ 2*pi * 440 * t) ()
 
 beats :: MonadInterleave m => m [Note]
@@ -55,24 +55,19 @@ beats = do
   
 track :: MonadInterleave m => m [Note]
 track = do  
-  melodies <- melody
-    & fmap (replicate 4)
-    & repeat
-    & sequence
-    & fmap concat
-    & interleave
+  melodies' <- melodies
   
-  tones <- randomTone 8 25
+  tones <- randomTone 400 33
     & fmap mkTone
     & repeat
     & sequence
-    & fmap (chunksOf 4)
+    & fmap (chunksOf 5)
     & fmap (concatMap (replicate 3))
     & interleave
   
   kicks <- randomKick
     & fmap mkDrum
-    & fmap (replicate 8)
+    & fmap (replicate 3)
     & repeat
     & sequence
     & fmap concat
@@ -80,45 +75,60 @@ track = do
   
   snares <- randomSnare
     & fmap mkDrum
-    & fmap (replicate 8)
+    & fmap (replicate 4)
     & repeat
     & sequence
     & fmap concat
     & interleave
+
+  attacks <- concatMap (replicate 2)
+    <$> chunksOf 5
+    <$> getRandomRs (0.001, 0.03)
     
   let amps = concat
-        [ replicate 2 [0.4 , 0   , 0   , 0   ]
-        , replicate 3 [0.4 , 0.3 , 0   , 0   ]
-        , replicate 4 [0.4 , 0.3 , 0.2 , 0   ] ]
-        ++ repeat     [0.4 , 0.3 , 0.2 , 0.07]
+        [ replicate 2  [0   , 0   , 0   , 0   , 0.2]
+        , replicate 4  [0.35, 0   , 0   , 0   , 0.2]
+        , replicate 8  [0.35, 0.3 , 0   , 0   , 0.2]
+        , replicate 16 [0.35, 0.3 , 0.25, 0   , 0.2]
+        , replicate 32 [0.35, 0.3 , 0.25, 0.15, 0.2]
+        , replicate 4  [0.35, 0.3 , 0.25, 0.15, 0  ]
+        , replicate 2  [0.35, 0.3 , 0.25, 0   , 0  ]
+        , replicate 1  [0.35, 0.3 , 0   , 0   , 0  ]
+        , replicate 2  [0.35, 0   , 0   , 0   , 0  ] ]
   
-  return $ concat $ zipWith6 f [0..] melodies tones amps kicks snares
+  let track' = concat $ zipWith7 f [0..] melodies' tones amps kicks snares attacks
+  
+  return $ track' ++ [someNote {time = 60*60, velocity = const 0}]
   
   where
     hz  = 440
-    vol = 0.5
-    dt  = 0.12
-    n   = 32
+    vol = 0.9
+    dt  = 0.2
+    n   = 16
     
-    f i melody' tone' amp kick snare = sort $ concat $ kicks : snares : withAmp
+    f i melody' tone' amp kick snare attacks = sort $ concat $ withAmp -- : kicks : snares
       where
         t0 = fromIntegral i * dt * n
         
         base = someNote { time         = t0
                         , duration     = dt
-                        , noteEnvelope = Envelope 0.01 0.02 0.5 0.2 }
+                        , noteEnvelope = Envelope 0.01 0.05 0.5 0.55 }
         
-        pitched = zipWith (map . (*)) [hz/4, hz/2, hz/2, hz] melody'
+        pitched = zipWith (map . (*)) [hz/4, hz/2, hz/2, hz, hz] melody'
         
         voices = map (seqNotes . joinPitches base) pitched
-        
+
         fused = zipWith (&) voices
-          [id, id, id, fuse]
+          [id, id, id, fuse, id]
           where
-            fuse = (map g) . fuseNotes 0.7
+            fuse = (map g) . fuseNotes 0.65
             g x = x { noteEnvelope = Envelope 0.01 1 1 0.01 }
         
-        withTone = zipWith (map . g) tone' fused
+        withAttack = zipWith (map . f) attacks fused
+          where
+            f a x = x { noteEnvelope = (noteEnvelope x) { attack = a } }
+        
+        withTone = zipWith (map . g) tone' withAttack
           where g w x = x { tone = w }
           
         withAmp = zipWith (map . g) amp withTone

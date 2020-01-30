@@ -56,7 +56,7 @@ solveM _  _  _  _  (Constraint _ [] _ ) = errorZs
 solveM sf il it xs (Constraint z zs fs) = either (const []) id <$> f ((head zs) z) (tail zs) fs xs
   where
     f _ _  _  [] = return $ Right [ [] ]
-    f _ [] _  _  = errorZs
+    -- f _ [] _  _  = errorZs
     f _ _  [] _  = errorFs
     f z zs fs (    []:xss) = (fmap $ map ([]:)) <$> f ((head zs) z) (tail zs) (tail fs) xss
     f z zs fs ((x:xs):xss) = il $ do
@@ -76,7 +76,7 @@ solveM sf il it xs (Constraint z zs fs) = either (const []) id <$> f ((head zs) 
           | i+x > it  = Left (i+x)
           | otherwise = concatIt (i+x) xs
 
-solve :: MonadInterleave m => Int -> Int -> Constraint z () b -> m [[b]]
-solve n m c = maybe (error "solve: too hard") id <$>
+solve :: MonadInterleave m => Int -> Int -> Constraint z () b -> m (Maybe [[b]])
+solve n m c = -- maybe (error "solve: too hard") id <$>
   fmap fst <$> uncons <$> concatMapM f [10, 15 .. 500]
   where f it = solveM shuffleM interleave it (replicate m $ replicate n ()) c

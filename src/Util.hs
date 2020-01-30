@@ -19,8 +19,8 @@ import Pair
 -- Double x1.4
 -- Fixed  x2.6
 
-type Number = Fixed
-type Sample = Fixed
+type Number = Float -- Fixed
+type Sample = Float -- Fixed
 
 sampleRate :: Number
 sampleRate = 44100

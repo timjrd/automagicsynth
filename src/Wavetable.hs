@@ -11,10 +11,10 @@ import qualified Data.Vector.Unboxed as U
 import Util
 import Fixed
 
-type Boxed   = Fixed
-type Unboxed = Int
-box   = fromIntBits
-unbox = toIntBits
+type Boxed   = Float -- Fixed
+type Unboxed = Float -- Int
+box   = id -- fromIntBits
+unbox = id -- toIntBits
 
 data Wavetable = Wavetable Boxed Int Int Boxed (U.Vector Unboxed)
 

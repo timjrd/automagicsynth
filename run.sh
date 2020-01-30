@@ -2,7 +2,12 @@
 #! nix-shell -i bash
 bin=./dist/build/automagicsynth/automagicsynth
 function run {
-    $bin | ./scripts/play.sh
+  mkdir -p records
+  record=$(date +%Y-%m-%d-%H-%M-%S).pcm
+  echo $record
+  echo
+  $bin | tee records/$record | ./scripts/play.sh
+  # $bin +RTS -xc | tee records/$time.pcm | ./scripts/play.sh
 }
 
 if test -f $bin

@@ -82,15 +82,24 @@ fuseNotes k (x0:x1:xs) = x0 { pitch = newPitch } : fuseNotes k (x1:xs)
     fromPitch = pitch x0 0
     toPitch   = pitch x1 0
     dt        = duration x0
-    newPitch  = ramp (dt*k) dt fromPitch toPitch
+    newPitch  = if fromPitch == 0 ||
+                   toPitch == 0 ||
+                   max fromPitch toPitch / min fromPitch toPitch > 1.5
+                then const fromPitch
+                else ramp (dt*k) dt fromPitch toPitch
 
 fromPitches :: (RealFrac a) => Note -> [a] -> [Note]
-fromPitches y = map $ \hz -> y { pitch = const $ realToFrac hz }
+fromPitches y = map $ \hz -> if hz == 0
+  then y {pitch = const 0, velocity = const 0}
+  else y {pitch = const $ realToFrac hz}
 
 joinPitches :: (RealFrac a) => Note -> [a] -> [Note]
 joinPitches y = map f . group
   where
-    f ys = y { duration = duration y * fromIntegral (length ys)
-             , pitch    = const $ realToFrac $ head ys }
+    f ys | head ys == 0 = y {duration = dt, pitch = const 0, velocity = const 0}
+         | otherwise = y {duration = dt, pitch = p}
+      where
+        dt = duration y * fromIntegral (length ys)
+        p = const $ realToFrac $ head ys
 
            

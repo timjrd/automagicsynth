@@ -3,6 +3,7 @@ module Tone where
 import Control.Monad.Random hiding (fromList)
 
 import Data.Function ((&))
+import Data.Maybe
 import Data.List
 
 import Util
@@ -122,7 +123,7 @@ randomSubTone roughness = do
   return (ls,rs)
 
 randomWalk :: MonadInterleave m => Int -> m [Bool]
-randomWalk steps = head <$> solve steps 1 (walk steps)
+randomWalk steps = head <$> fromJust <$> solve steps 1 (walk steps)
 
 walk :: Int -> Constraint (Int,Int) () Bool
 walk steps = Constraint (steps, 0) (repeat id) (repeat f)

@@ -13,8 +13,8 @@ import System.Random.Shuffle
 import Constraint
 import Util
 
-data Class = Perfect | Imperfect
-  deriving Show
+data Class = Rest | Perfect | Imperfect
+  deriving (Eq, Show)
 
 type Consonance = Rational
 type Pitch      = Rational
@@ -41,6 +41,8 @@ consonances :: [Consonance]
 consonances = perfect ++ imperfect
 
 isConsonant :: Pitch -> Pitch -> Bool
+isConsonant 0 _ = True
+isConsonant _ 0 = True
 isConsonant a b = any f consonances
   where
     n = min a b
@@ -51,17 +53,18 @@ isConsonant a b = any f consonances
 
 mapClass :: Constraint () () Class
 mapClass = Constraint () (repeat id) (repeat f)
-  where f _ _ = [((),Perfect), ((),Imperfect)]
+  where f _ _ = [((),Perfect), ((),Imperfect), ((),Rest)]
 
-filterImperfect :: [Int] -> Constraint Int Class Class
-filterImperfect ms = Constraint 0 (repeat (const 0)) (map f ms)
-  where f _ i Perfect               = [(i  , Perfect  )]
-        f m i Imperfect | i+1 <= m  = [(i+1, Imperfect)]
-                        | otherwise = []
+filterClass :: Class -> [Int] -> Constraint Int Class Class
+filterClass c ms = Constraint 0 (repeat (const 0)) (map f ms)
+  where f m i c' | c /= c' = [(i, c')]
+                 | i+1 <= m = [(i+1, c')]
+                 | otherwise = []
 
 mapConsonance :: [Int] -> Constraint () Class (Int,Consonance)
 mapConsonance ps = Constraint () (repeat id) (map f ps)
-  where f p _ Perfect   = map ((,) ()) $ powers $ (inv perfect  ) : replicate (p-1) (inv perfect    )
+  where f _ _ Rest = [((), (0,0))]
+        f p _ Perfect   = map ((,) ()) $ powers $ (inv perfect  ) : replicate (p-1) (inv perfect    )
         f p _ Imperfect = map ((,) ()) $ powers $ (inv imperfect) : replicate (p-1) (inv consonances)
         inv x = nub $ x ++ map recip x
 
@@ -87,14 +90,19 @@ dir :: (Ord a, Num a) => a -> a -> Bool
 dir x y = (x <= 1 && y <= 1) ||
           (x >= 1 && y >= 1)
 
-toPitch :: Pitch -> Pitch -> [Int] -> Constraint (Int,Pitch) Consonance Pitch
-toPitch lo hi rs = Constraint (0,1) (repeat $ const (0,1)) (map f rs)
+toPitch :: Pitch -> Pitch -> [Int] -> [[Maybe Pitch]]
+        -> Constraint (Int, Pitch, [Maybe Pitch]) Consonance Pitch
+toPitch lo hi rs prev =
+  Constraint undefined (map (const . (,,) 0 1) prev) (map f rs)
   where
-    f r (i,v) x | i == 0    = [((i+1, v'), v')]
-                | i == r    = [((1  , v'), v')]
-                | otherwise = [((i+1, v ), v )]
+    f r (i, v, Just p:ps) x = [((i, v, ps), p)]
+    f r (i, v, Nothing:ps) x
+      | i == 0    = [((i+1, v'', ps), v')]
+      | i == r    = [((1  , v'', ps), v')]
+      | otherwise = [((i+1, v'', ps), v )]
       where
-        v' = clamp lo hi $ v*x
+        v'  = clamp lo hi $ v*x
+        v'' = if x == 0 then v else v'
 
 filterConsonant :: Constraint (Int, M.IntMap [Pitch]) Pitch Pitch
 filterConsonant = Constraint (0,M.empty) (repeat $ \(_,mp) -> (0,mp)) (repeat f)
@@ -129,14 +137,41 @@ clamp lo hi x | x < lo    = x*2
               | x > hi    = x/2
               | otherwise = x
 
-
-melody :: MonadInterleave m => m [[Pitch]]
-melody = solve 32 4 $ mapClass
-  .> filterImperfect [1,2,3,3]
-  .> mapConsonance   [1,1,2,2]
-  .> filterPower     [32,32,50,50]
-  .> filterAlterationBy dir 32 [(2,4),(2,4),(2,8),(2,8)]  
-  .> toPitch 0.5 2 [4,3,2,1]
-  .> filterAlterationBy (==) 32 [(2,8),(2,8),(4,16),(8,32)]
+melody :: MonadInterleave m => [[Maybe Pitch]] -> m (Maybe [[Pitch]])
+melody prev = solve 16 5 $ mapClass
+  .> filterClass Rest [2,4,4,8,8]
+  .> filterClass Imperfect [2,4,2,2,4]
+  .> mapConsonance   [1,1,2,2,2]
+  .> filterPower     [30,40,40,50,50]
+  .> filterAlterationBy dir 16 [(0,99),(0,1),(1,2),(1,2),(1,4)]
+  .> toPitch 0.5 2 [4,3,2,2,1] prev
+  -- .> filterAlterationBy (==) 16 [(0,99),(0,99),(0,99),(0,99),(8,32)]
   .> filterConsonant
-  .> filterCycleBy isConsonant 32
+  .> filterCycleBy isConsonant 16
+
+holes :: [[Maybe a]]
+holes = replicate 5 $ replicate 16 Nothing
+
+makeHoles :: MonadInterleave m => [[Pitch]] -> m [[Maybe Pitch]]
+makeHoles prev = do
+  i <- getRandomR (0,4)
+  let justPrev = map (map Just) prev
+  return $ take i justPrev
+    ++ [replicate 16 Nothing]
+    ++ drop (i+1) justPrev
+
+melodies :: MonadInterleave m => m [ [[Pitch]] ]
+melodies = interleave $ do
+  mx <- melody holes
+  case mx of
+    Nothing -> melodies
+    Just x -> f x
+  where
+    f prev = do
+      withHoles <- makeHoles prev      
+      mx <- melody withHoles
+      case mx of
+        Nothing -> f prev
+        Just x -> do
+          xs <- f x
+          return $ x : x : xs
