@@ -1,4 +1,4 @@
-{ nixpkgs ? null }: with builtins; let
+{ nixpkgs ? <nixpkgs> }: with builtins; let
   zeros = "0000000000000000000000000000000000000000000000000000";
   github = {repo, rev, sha256 ? zeros}: fetchTarball {
     url = "https://github.com/${repo}/archive/${rev}.tar.gz";

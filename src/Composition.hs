@@ -53,13 +53,23 @@ isConsonant a b = any f consonances
 
 mapClass :: Constraint () () Class
 mapClass = Constraint () (repeat id) (repeat f)
-  where f _ _ = [((),Perfect), ((),Imperfect), ((),Rest)]
+  where f _ _ = [((),Perfect), ((),Rest)]
 
 filterClass :: Class -> [Int] -> Constraint Int Class Class
 filterClass c ms = Constraint 0 (repeat (const 0)) (map f ms)
   where f m i c' | c /= c' = [(i, c')]
                  | i+1 <= m = [(i+1, c')]
                  | otherwise = []
+
+minClass :: Int -> Class -> [Int] -> Constraint (Int,Int) Class Class
+minClass n c ms = Constraint 0 (repeat (const (n-1,0))) (map f ms)
+  where
+    f m (n',i) c' = case n' of
+      0 | i' >= m -> [((0,0), c')]
+        | otherwise -> []
+      _ -> [((n' - 1, i'), c')]
+      where
+        i' = if c == c' then i + 1 else i
 
 mapConsonance :: [Int] -> Constraint () Class (Int,Consonance)
 mapConsonance ps = Constraint () (repeat id) (map f ps)
@@ -139,8 +149,9 @@ clamp lo hi x | x < lo    = x*2
 
 melody :: MonadInterleave m => [[Maybe Pitch]] -> m (Maybe [[Pitch]])
 melody prev = solve 16 5 $ mapClass
-  .> filterClass Rest [2,4,4,8,8]
-  .> filterClass Imperfect [2,4,2,2,4]
+  .> minClass 16 Rest (replicate 5 5)
+--  .> filterClass Rest [7,7,8,9,9]
+  .> filterClass Imperfect [3,2,2,2,1]
   .> mapConsonance   [1,1,2,2,2]
   .> filterPower     [30,40,40,50,50]
   .> filterAlterationBy dir 16 [(0,99),(0,1),(1,2),(1,2),(1,4)]
@@ -152,13 +163,12 @@ melody prev = solve 16 5 $ mapClass
 holes :: [[Maybe a]]
 holes = replicate 5 $ replicate 16 Nothing
 
-makeHoles :: MonadInterleave m => [[Pitch]] -> m [[Maybe Pitch]]
+makeHoles :: MonadInterleave m => [[Maybe Pitch]] -> m [[Maybe Pitch]]
 makeHoles prev = do
   i <- getRandomR (0,4)
-  let justPrev = map (map Just) prev
-  return $ take i justPrev
+  return $ take i prev
     ++ [replicate 16 Nothing]
-    ++ drop (i+1) justPrev
+    ++ drop (i+1) prev
 
 melodies :: MonadInterleave m => m [ [[Pitch]] ]
 melodies = interleave $ do
@@ -168,8 +178,10 @@ melodies = interleave $ do
     Just x -> f x
   where
     f prev = do
-      withHoles <- makeHoles prev      
-      mx <- melody withHoles
+      withHoles1 <- makeHoles $ map (map Just) prev
+      r <- getRandom
+      withHoles2 <- if r then makeHoles withHoles1 else return withHoles1
+      mx <- melody withHoles2
       case mx of
         Nothing -> f prev
         Just x -> do

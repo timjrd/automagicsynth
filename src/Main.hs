@@ -57,7 +57,7 @@ track :: MonadInterleave m => m [Note]
 track = do  
   melodies' <- melodies
   
-  tones <- randomTone 400 33
+  tones <- randomTone 400 88
     & fmap mkTone
     & repeat
     & sequence
@@ -83,7 +83,7 @@ track = do
 
   attacks <- concatMap (replicate 2)
     <$> chunksOf 5
-    <$> getRandomRs (0.001, 0.03)
+    <$> getRandomRs (0.002, 0.1)
     
   let amps = concat
         [ replicate 2  [0   , 0   , 0   , 0   , 0.2]
@@ -103,7 +103,7 @@ track = do
   where
     hz  = 440
     vol = 0.9
-    dt  = 0.2
+    dt  = 0.15
     n   = 16
     
     f i melody' tone' amp kick snare attacks = sort $ concat $ withAmp -- : kicks : snares
