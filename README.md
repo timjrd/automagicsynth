@@ -1,11 +1,8 @@
 # automagicsynth
-*A deterministic generative music synthesizer.*
+*Generative music & audio synthesis, from scratch.*
 
 ## Setup
-Install the [Nix package manager](https://nixos.org/nix/):
-```
-curl https://nixos.org/nix/install | sh
-```
+Install the [Nix package manager](https://nixos.org/download).
 
 ## Build
 ```
